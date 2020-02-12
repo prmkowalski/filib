@@ -1,0 +1,42 @@
+from os import path
+
+from setuptools import setup, find_packages
+import versioneer
+
+from filib import __doc__, __author__
+
+here = path.abspath(path.dirname(__file__))
+
+with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
+    long_description = f.read()
+
+with open(path.join(here, 'requirements.txt'), encoding='utf-8') as f:
+    install_requires = [line.strip() for line in f.readlines()]
+
+setup(
+    name='filib',
+    version=versioneer.get_version(),
+    cmdclass=versioneer.get_cmdclass(),
+    description=__doc__,
+    long_description=long_description,
+    url='https://github.com/makr3la/filib',
+    author=__author__,
+    author_email='makr3la@gmail.com',
+    license='Apache License 2.0',
+    classifiers=[
+        'Development Status :: 3 - Alpha',
+        'Intended Audience :: Developers',
+        'License :: OSI Approved :: Apache Software License',
+        'Operating System :: OS Independent',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
+        'Topic :: Office/Business :: Financial :: Investment',
+        'Topic :: Software Development :: Libraries',
+    ],
+    packages=find_packages(),
+    python_requires='>=3.6',
+    install_requires=install_requires,
+    include_package_data=True,
+    zip_safe=False,
+)
