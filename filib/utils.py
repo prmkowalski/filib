@@ -85,8 +85,11 @@ def get_performance(factor_data):
         ic.loc['- Information Coefficient:', period] = correlation.mean()
     duration = returns.index[-1] - returns.index[0]
     years = duration.days / 365.25
-    sharpe = returns.mean() / returns.std()
-    annualized_sharpe = sharpe * (len(returns) / years)**.5
+    try:
+        sharpe = returns.mean() / returns.std()
+        annualized_sharpe = sharpe * (len(returns) / years)**.5
+    except ZeroDivisionError:
+        annualized_sharpe = np.nan
     x = factor_data.groupby(level=0).mean()[periods[0]].dropna()
     y = factor_data.groupby(level=0).sum().loc[x.index, returns_column]
     beta, alpha = stats.linregress(x, y)[:2]
