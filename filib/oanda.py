@@ -15,6 +15,7 @@ import pickle
 import time
 import warnings
 
+import numpy as np
 import pandas as pd
 import v20
 
@@ -190,10 +191,14 @@ class Oanda:
         self.logger.addHandler(file_handler)
         self.api = _get_api()
         self.instruments = instruments
+        self.periods = periods
+        self.split = split
         self.accountID = accountID
         if not 0 <= target < 1:
             raise ValueError(f'Target `{target}` out of range (0, 1).')
         self.target = target
+        self.long_short = long_short
+        self.combination = combination
         self.price_data = get_price_data(instruments, granularity=granularity,
                                          count=count, symbol=symbol, save=save)
         self.open = self.price_data.xs('open', axis=1, level=1)
@@ -238,6 +243,24 @@ class Oanda:
             self.logger.info(log)
             return summary
         log, summary = get_performance(self.combined_factor_data)
+        self.logger.info(log)
+        return summary
+
+    def select(self, rules, swap=None):
+        summaries = [self.performance(factor) for factor in self.factors]
+        select = pd.concat(summaries, axis=1).T.query(rules)
+        sign = np.sign(select[swap]) if swap else pd.Series(1, select.index)
+        select_factor_data = {
+            f'{int(sign[name])}{name}'.replace('1', '', 1):
+            sign[name] * factor_data.loc[:, 'factor':]
+            for name, factor_data in self.factor_data.items()
+            if name in select.index}
+        self.logger.info(f'Selection: {", ".join(select_factor_data.keys())}')
+        combined_factor = combine_factors(select_factor_data, self.combination)
+        combined_factor_data = get_factor_data(
+            combined_factor, self.price_data, self.periods, self.split,
+            self.long_short, f'{self.name}_selected')
+        log, summary = get_performance(combined_factor_data)
         self.logger.info(log)
         return summary
 
