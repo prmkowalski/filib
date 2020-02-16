@@ -255,14 +255,17 @@ class Oanda:
             sign[name] * factor_data.loc[:, 'factor':]
             for name, factor_data in self.factor_data.items()
             if name in select.index}
-        self.logger.info(f'Selection: {", ".join(select_factor_data.keys())}')
+        if not select_factor_data:
+            self.logger.info(f'No factor satisfies the rules `{rules}`.')
+            return None
+        self.logger.info(f'Selection: {", ".join(select_factor_data.keys())}.')
         combined_factor = combine_factors(select_factor_data, self.combination)
         combined_factor_data = get_factor_data(
             combined_factor, self.price_data, self.periods, self.split,
             self.long_short, f'{self.name}_selected')
         log, summary = get_performance(combined_factor_data)
         self.logger.info(log)
-        return summary
+        return sign.rename('selection'), summary
 
     def rebalance(self, live=False):
         weights = self.combined_factor_data['weights']
