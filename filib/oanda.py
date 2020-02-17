@@ -221,7 +221,7 @@ class Oanda:
                     factor, self.price_data, periods, s, long_short, name)
                 elapsed = time.process_time() - start_time
                 self.logger.info(
-                    f'Factor `{name}` initialized in {elapsed:.0f} s.')
+                    f'Factor `{name}` initialized in {elapsed:.1f} s.')
         self.factors = list(self.factor_data.keys())
         self.combined_factor = combine_factors(self.factor_data, combination)
         self.combined_factor_data = get_factor_data(
@@ -258,7 +258,9 @@ class Oanda:
         if not select_factor_data:
             self.logger.info(f'No factor satisfies the rules `{rules}`.')
             return None
-        self.logger.info(f'Selection: {", ".join(select_factor_data.keys())}.')
+        self.logger.info(f"Factors with signs that meet the rules `{rules}`:\n"
+                         f"\n"
+                         f"{sign.to_string()}\n")
         combined_factor = combine_factors(select_factor_data, self.combination)
         combined_factor_data = get_factor_data(
             combined_factor, self.price_data, self.periods, self.split,
