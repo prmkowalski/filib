@@ -34,10 +34,6 @@ Install with `pip <https://pip.pypa.io/en/stable/>`_:
 
     $ pip install filib
 
-Check
-`requirements.txt <https://github.com/makr3la/filib/blob/master/requirements.txt>`_
-for dependencies.
-
 Usage
 -----
 

@@ -5,7 +5,6 @@ __all__ = [
     'scale', 'stddev', 'ts_sum', 'ts_min', 'ts_max', 'ts_rank'
 ]
 
-import numpy as np
 import pandas as pd
 
 
@@ -60,7 +59,7 @@ def delta(x, d):
 
 def product(x, d):
     """Return time-series product over the past d days."""
-    return x.rolling(d).apply(np.prod, raw=True)
+    return x.rolling(d).apply(lambda x: x.prod(), raw=True)
 
 
 def rank(x):

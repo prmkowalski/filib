@@ -5,9 +5,7 @@ __all__ = ['get_factor_data', 'combine_factors', 'get_performance']
 from datetime import datetime, timezone
 
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
-from scipy import stats
 
 plt.style.use('ggplot')
 plt.rcParams['figure.figsize'] = (12, 8)
@@ -18,8 +16,8 @@ def get_factor_data(factor, price_data, periods=None, split=3,
     prices = price_data.xs('close', axis=1, level=1).filter(factor.columns)
     if factor.index.tz != prices.index.tz:
         raise ValueError("The time zone of `factor` and `prices` don't match.")
-    factor.loc[datetime.now(timezone.utc)] = np.nan
-    factor.replace([-np.inf, np.inf], np.nan, inplace=True)
+    factor.loc[datetime.now(timezone.utc)] = float('nan')
+    factor.replace([float('-inf'), float('inf')], float('nan'), inplace=True)
     factor = factor.resample(prices.index.freq).ffill()[prices.index[0]:]
     periods = [1] if not periods else [1] + sorted(periods)
     deltas = [period * prices.index.to_series(keep_tz=True).diff().mode()
@@ -81,7 +79,7 @@ def get_performance(factor_data):
     ic = pd.DataFrame()
     for period in periods:
         correlation = factor_data.dropna().groupby(level=0).apply(
-            lambda x: stats.spearmanr(x['factor'], x[period])[0])
+            lambda x: x['factor'].corr(x[period], method='spearman'))
         ic.loc['- Information Coefficient:', period] = correlation.mean()
     duration = returns.index[-1] - returns.index[0]
     years = duration.days / 365.25
@@ -89,10 +87,12 @@ def get_performance(factor_data):
         sharpe = returns.mean() / returns.std()
         annualized_sharpe = sharpe * (len(returns) / years)**.5
     except ZeroDivisionError:
-        annualized_sharpe = np.nan
+        annualized_sharpe = float('nan')
     x = factor_data.groupby(level=0).mean()[periods[0]].dropna()
     y = factor_data.groupby(level=0).sum().loc[x.index, returns_column]
-    beta, alpha = stats.linregress(x, y)[:2]
+    beta = ((len(x) * sum(x * y) - sum(x) * sum(y)) /
+            (len(x) * sum(x**2) - sum(x)**2))
+    alpha = (sum(y) - beta * sum(x)) / len(x)
     annualized_alpha = alpha * (len(returns) / years)
     autocorr = factor_data['factor'].unstack().rank(axis=1).apply(
         lambda col: col.autocorr()).mean()

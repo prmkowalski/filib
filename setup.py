@@ -10,9 +10,6 @@ here = path.abspath(path.dirname(__file__))
 with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
 
-with open(path.join(here, 'requirements.txt'), encoding='utf-8') as f:
-    install_requires = [line.strip() for line in f.readlines()]
-
 setup(
     name='filib',
     version=versioneer.get_version(),
@@ -36,7 +33,11 @@ setup(
     ],
     packages=find_packages(),
     python_requires='>=3.6',
-    install_requires=install_requires,
+    install_requires=[
+        'matplotlib',
+        'pandas>=0.24.0,<1',
+        'v20==3.0.25.0',
+    ],
     include_package_data=True,
     zip_safe=False,
 )

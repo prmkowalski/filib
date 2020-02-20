@@ -15,7 +15,6 @@ import pickle
 import time
 import warnings
 
-import numpy as np
 import pandas as pd
 import v20
 
@@ -249,7 +248,8 @@ class Oanda:
     def select(self, rules, swap=None):
         summaries = [self.performance(factor) for factor in self.factors]
         select = pd.concat(summaries, axis=1).T.query(rules)
-        sign = np.sign(select[swap]) if swap else pd.Series(1, select.index)
+        sign = pd.Series(1, select.index) if not swap else select[swap]
+        sign[sign > 0], sign[sign < 0] = 1, -1
         select_factor_data = {
             f'{int(sign[name])}{name}'.replace('1', '', 1):
             sign[name] * factor_data.loc[:, 'factor':]
