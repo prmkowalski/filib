@@ -209,7 +209,7 @@ class Oanda:
         self.factor_data = {}
         for name, function in getmembers(self.__class__, predicate=isfunction):
             if self.name in str(function):
-                start_time = time.process_time()
+                start_time = time.time()
                 try:
                     factor, s = function(self)
                 except ValueError:
@@ -218,7 +218,7 @@ class Oanda:
                     raise TypeError(f'`{name}` must return atleast factor.')
                 self.factor_data[name] = get_factor_data(
                     factor, self.price_data, periods, s, long_short, name)
-                elapsed = time.process_time() - start_time
+                elapsed = time.time() - start_time
                 self.logger.info(
                     f'Factor `{name}` initialized in {elapsed:.1f} s.')
         self.factors = list(self.factor_data.keys())
