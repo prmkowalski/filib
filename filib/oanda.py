@@ -290,7 +290,7 @@ class Oanda:
             if trade.instrument in orders.index:
                 orders[trade.instrument] = (
                     orders[trade.instrument] - trade.currentUnits)
-            else:
+            elif trade.instrument not in orders.index and live:
                 self.api.trade.close(self.accountID, trade.id)
         if live:
             for instrument, units in orders.items():
