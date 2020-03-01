@@ -173,8 +173,8 @@ def _arrange_price_data(price_data, symbol):
 
 class Oanda:
     def __init__(self, instruments, granularity='D', count=500, symbol=None,
-                 save=False, periods=None, split=3, accountID=None, target=.8,
-                 long_short=False, combination='sum_of_weights'):
+                 save=False, periods=None, split=3, accountID=None,
+                 leverage=1, long_short=False, combination='sum_of_weights'):
         self.name = str(self.__class__).split('.')[-1].split("'")[0]
         self.logger = logging.getLogger(self.name)
         self.logger.setLevel(logging.INFO)
@@ -193,9 +193,7 @@ class Oanda:
         self.periods = periods
         self.split = split
         self.accountID = accountID
-        if not 0 <= target < 1:
-            raise ValueError(f'Target `{target}` out of range (0, 1).')
-        self.target = target
+        self.leverage = leverage
         self.long_short = long_short
         self.combination = combination
         self.price_data = get_price_data(instruments, granularity=granularity,
@@ -272,20 +270,24 @@ class Oanda:
     def rebalance(self, live=False):
         weights = self.combined_factor_data['weights']
         positions = weights.loc[weights.index.get_level_values('date')[-1]]
+        account = self.api.account.get(self.accountID).get('account')
         orders = pd.Series(name=self.name)
         for asset in positions.loc[positions != 0].index:
             for instrument in self.instruments:
                 base, quote = instrument.split('_')
-                r = self.api.pricing.get(
+                pricing = self.api.pricing.get(
                     self.accountID, instruments=instrument).get('prices')[-1]
+                base_home_conversion_factor = (
+                    ((pricing.closeoutAsk + pricing.closeoutBid) / 2) *
+                    ((pricing.quoteHomeConversionFactors.positiveUnits +
+                      pricing.quoteHomeConversionFactors.negativeUnits) / 2))
+                nav = account.NAV / base_home_conversion_factor
                 if asset in base or asset == instrument:
                     orders[instrument] = int(round(
-                        r.unitsAvailable.default.long * positions[asset]
-                        * self.target, -1))
+                        positions[asset] * nav * self.leverage, -1))
                 elif asset in quote:
                     orders[instrument] = int(round(
-                        -r.unitsAvailable.default.short * positions[asset]
-                        * self.target, -1))
+                        -positions[asset] * nav * self.leverage, -1))
         for trade in self.api.trade.list_open(self.accountID).get('trades'):
             if trade.instrument in orders.index:
                 orders[trade.instrument] = (
