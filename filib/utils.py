@@ -97,6 +97,7 @@ def get_performance(factor_data):
     autocorr = factor_data['factor'].unstack().rank(axis=1).apply(
         lambda col: col.autocorr()).mean()
     cagr = (cum_returns[-1] / cum_returns[0])**(1 / years) - 1
+    annualized_volatility = returns.std() * (len(returns) / years)**.5
     drawdown = 1 - cum_returns.div(cum_returns.cummax())
     dd_duration = drawdown[drawdown == 0].index.to_series(keep_tz=True).diff()
     past_returns = returns.groupby(
@@ -119,6 +120,7 @@ def get_performance(factor_data):
         f"- Rebalance every: {returns_column.rsplit('_', 1)[-1]}\n"
         f"\n"
         f"- Compound Annual Growth Rate: {cagr.max():.2%}\n"
+        f"- Annualized Volatility: {annualized_volatility:.2%}\n"
         f"- Maximum Drawdown: -{drawdown.max():.2%}\n"
         f"- Maximum Drawdown Duration: {dd_duration.max()}\n"
         f"\n"
