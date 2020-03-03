@@ -267,9 +267,10 @@ class Oanda:
         self.logger.info(log)
         return sign.rename('selection'), summary
 
-    def rebalance(self, live=False):
+    def rebalance(self, live=False, keep_current_trades=False):
         weights = self.combined_factor_data['weights']
         positions = weights.loc[weights.index.get_level_values('date')[-1]]
+        positions.sort_values(inplace=True)
         account = self.api.account.get(self.accountID).get('account')
         orders = pd.Series(name=self.name)
         for asset in positions.loc[positions != 0].index:
@@ -289,18 +290,26 @@ class Oanda:
                     orders[instrument] = int(round(
                         -positions[asset] * nav * self.leverage, -1))
         for trade in self.api.trade.list_open(self.accountID).get('trades'):
-            if trade.instrument in orders.index:
+            if keep_current_trades and trade.instrument in orders.index:
                 orders[trade.instrument] = (
                     orders[trade.instrument] - trade.currentUnits)
-            elif trade.instrument not in orders.index and live:
+            elif live:
                 self.api.trade.close(self.accountID, trade.id)
         if live:
             for instrument, units in orders.items():
                 self.api.order.market(
                     self.accountID, instrument=instrument, units=units)
-        self.logger.info(f"Orders from {weights.index.levels[0][-1]}:\n"
-                         f"\n"
-                         f"{orders.sort_index().to_string()}\n")
+        self.logger.info(
+            f"Portfolio from `{weights.index.levels[0][-1]}`:\n"
+            f"\n"
+            f"{positions.apply('{0:.1%}'.format).to_string(header=False)}\n"
+            f"\n"
+            f"- Account NAV: {account.NAV:.2f} {account.currency}\n"
+            f"- Position Value: {account.positionValue:.2f}\n"
+            f"- Submitted Orders:\n"
+            f"\n"
+            f"{orders.to_string()}\n"
+        )
 
 
 MAJORS = [
