@@ -295,6 +295,7 @@ class Oanda:
                     orders[trade.instrument] - trade.currentUnits)
             elif live:
                 self.api.trade.close(self.accountID, trade.id)
+        orders = orders.loc[orders != 0]
         if live:
             for instrument, units in orders.items():
                 self.api.order.market(
@@ -306,9 +307,9 @@ class Oanda:
             f"\n"
             f"- Account NAV: {account.NAV:.2f} {account.currency}\n"
             f"- Position Value: {account.positionValue:.2f}\n"
-            f"- Submitted Orders:\n"
+            f"- {'Submitted Orders' if live else 'Needed Orders'}:\n"
             f"\n"
-            f"{orders.to_string()}\n"
+            f"{orders.to_string() if orders.any() else 'None'}\n"
         )
 
 
