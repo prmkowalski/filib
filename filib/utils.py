@@ -81,6 +81,8 @@ def get_performance(factor_data):
         correlation = factor_data.dropna().groupby(level=0).apply(
             lambda x: x['factor'].corr(x[period], method='spearman'))
         ic.loc['- Information Coefficient:', period] = correlation.mean()
+    autocorr = factor_data['factor'].unstack().rank(axis=1).apply(
+        lambda col: col.autocorr()).mean()
     duration = returns.index[-1] - returns.index[0]
     years = duration.days / 365.25
     try:
@@ -94,8 +96,9 @@ def get_performance(factor_data):
             (len(x) * sum(x**2) - sum(x)**2))
     alpha = (sum(y) - beta * sum(x)) / len(x)
     annualized_alpha = alpha * (len(returns) / years)
-    autocorr = factor_data['factor'].unstack().rank(axis=1).apply(
-        lambda col: col.autocorr()).mean()
+    win_rate = len(returns[returns > 0]) / len(returns)
+    risk_reward = returns[returns > 0].mean() / -returns[returns < 0].mean()
+    profit_factor = sum(returns[returns > 0]) / -sum(returns[returns < 0])
     cagr = (cum_returns[-1] / cum_returns[0])**(1 / years) - 1
     annualized_volatility = returns.std() * (len(returns) / years)**.5
     drawdown = 1 - cum_returns.div(cum_returns.cummax())
@@ -110,9 +113,13 @@ def get_performance(factor_data):
         f"{factor_stats.round(3).to_string()}\n"
         f"\n"
         f"{ic.round(3).to_string()}\n"
+        f"- Factor Rank Autocorrelation: {autocorr:.2f}\n"
+        f"\n"
         f"- Annualized Sharpe Ratio: {annualized_sharpe:.2f}\n"
         f"- Annualized Alpha (Beta): {annualized_alpha:.3f} ({beta:.3f})\n"
-        f"- Factor Rank Autocorrelation: {autocorr:.2f}\n"
+        f"- Win Rate: {win_rate:.2%}\n"
+        f"- Risk / Reward: {risk_reward:.2f}\n"
+        f"- Profit Factor: {profit_factor:.2f}\n"
         f"\n"
         f"- Start Date: {returns.index[0].date()}\n"
         f"- End Date: {returns.index[-1].date()}\n"
@@ -133,7 +140,9 @@ def get_performance(factor_data):
     benchmark_cum_rets = (1 + benchmark_rets).cumprod().rename('benchmark')
     benchmark_cum_rets.plot(legend=True, secondary_y=True, color='gray')
     plt.show()
-    summary = pd.Series({'ic': ic.iloc[0, 0], 'sharpe': annualized_sharpe,
-                         'alpha': annualized_alpha, 'autocorr': autocorr,
+    summary = pd.Series({'ic': ic.iloc[0, 0], 'autocorr': autocorr,
+                         'sharpe': annualized_sharpe, 'beta': beta,
+                         'alpha': annualized_alpha, 'win': win_rate,
+                         'rr': risk_reward, 'profit': profit_factor,
                          'cagr': cagr}).rename(factor_data.name)
     return log, summary
