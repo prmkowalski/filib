@@ -215,15 +215,16 @@ class Oanda:
                 except TypeError:
                     raise TypeError(f'`{name}` must return atleast factor.')
                 self.factor_data[name] = get_factor_data(
-                    factor, self.price_data, periods, s, long_short, name)
+                    factor, self.price_data, periods, s, leverage, long_short,
+                    name)
                 elapsed = time.time() - start_time
                 self.logger.info(
                     f'Factor `{name}` initialized in {elapsed:.1f} s.')
         self.factors = list(self.factor_data.keys())
         self.combined_factor = combine_factors(self.factor_data, combination)
         self.combined_factor_data = get_factor_data(
-            self.combined_factor, self.price_data, periods, split, long_short,
-            f'{self.name}_combined')
+            self.combined_factor, self.price_data, periods, split, leverage,
+            long_short, f'{self.name}_combined')
         self.pd = self.price_data
         self.o = self.open
         self.h = self.high
@@ -262,7 +263,7 @@ class Oanda:
         combined_factor = combine_factors(select_factor_data, self.combination)
         combined_factor_data = get_factor_data(
             combined_factor, self.price_data, self.periods, self.split,
-            self.long_short, f'{self.name}_selected')
+            self.leverage, self.long_short, f'{self.name}_selected')
         log, summary = get_performance(combined_factor_data)
         self.logger.info(log)
         return sign.rename('selection'), summary

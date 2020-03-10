@@ -12,7 +12,7 @@ plt.rcParams['figure.figsize'] = (12, 8)
 
 
 def get_factor_data(factor, price_data, periods=None, split=3,
-                    long_short=False, name=''):
+                    leverage=1, long_short=False, name=''):
     prices = price_data.xs('close', axis=1, level=1).filter(factor.columns)
     if factor.index.tz != prices.index.tz:
         raise ValueError("The time zone of `factor` and `prices` don't match.")
@@ -47,7 +47,7 @@ def get_factor_data(factor, price_data, periods=None, split=3,
     factor_data['weights'].fillna(0, inplace=True)
     for period in forward_returns:
         factor_data[f'{name}_{period}'] = (
-            factor_data['weights'] * factor_data[period])
+            factor_data['weights'] * factor_data[period] * leverage)
     factor_data.rename_axis(index=['date', 'asset'], inplace=True)
     factor_data.name = name
     return factor_data
