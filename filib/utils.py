@@ -1,14 +1,16 @@
-"""Module with functions used throughout the application."""
+"""Module with functions used throughout the library."""
 
 __all__ = ['get_factor_data', 'combine_factors', 'get_performance']
 
 from datetime import datetime, timezone
 
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+    plt.style.use('ggplot')
+    plt.rcParams['figure.figsize'] = (12, 8)
+except ImportError:
+    pass
 import pandas as pd
-
-plt.style.use('ggplot')
-plt.rcParams['figure.figsize'] = (12, 8)
 
 
 def get_factor_data(factor, price_data, periods=None, split=3,
@@ -135,11 +137,12 @@ def get_performance(factor_data):
         f"\n"
         f"{past_returns.to_string(index_names=False)}\n"
     )
-    cum_returns.plot(title='Cumulative Returns', legend=True, linewidth=3)
-    benchmark_rets = factor_data[periods[0]].groupby(level=0).sum()
-    benchmark_cum_rets = (1 + benchmark_rets).cumprod().rename('benchmark')
-    benchmark_cum_rets.plot(legend=True, secondary_y=True, color='gray')
-    plt.show()
+    if 'plt' in globals():
+        cum_returns.plot(title='Cumulative Returns', legend=True, linewidth=3)
+        benchmark_rets = factor_data[periods[0]].groupby(level=0).sum()
+        benchmark_cum_rets = (1 + benchmark_rets).cumprod().rename('benchmark')
+        benchmark_cum_rets.plot(legend=True, secondary_y=True, color='gray')
+        plt.show()
     summary = pd.Series({'ic': ic.iloc[0, 0], 'autocorr': autocorr,
                          'sharpe': annualized_sharpe, 'beta': beta,
                          'alpha': annualized_alpha, 'win': win_rate,

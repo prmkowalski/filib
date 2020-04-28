@@ -34,7 +34,6 @@ setup(
     packages=find_packages(),
     python_requires='>=3.6',
     install_requires=[
-        'matplotlib',
         'pandas>=0.24.0,<1',
         'v20==3.0.25.0',
     ],
