@@ -22,7 +22,7 @@ def get_factor_data(factor, price_data, periods=None, split=3,
     factor.replace([float('-inf'), float('inf')], float('nan'), inplace=True)
     factor = factor.resample(prices.index.freq).ffill()[prices.index[0]:]
     periods = [1] if not periods else [1] + sorted(periods)
-    deltas = [period * prices.index.to_series(keep_tz=True).diff().mode()
+    deltas = [period * prices.index.to_series().diff().mode()
               for period in periods]
     deltas = [(delta.to_string(index=False).replace(':', 'h', 1).replace(
         ':', 'm') + 's').replace(' dayss', 'D') for delta in deltas]
@@ -104,7 +104,7 @@ def get_performance(factor_data):
     cagr = (cum_returns[-1] / cum_returns[0])**(1 / years) - 1
     annualized_volatility = returns.std() * (len(returns) / years)**.5
     drawdown = 1 - cum_returns.div(cum_returns.cummax())
-    dd_duration = drawdown[drawdown == 0].index.to_series(keep_tz=True).diff()
+    dd_duration = drawdown[drawdown == 0].index.to_series().diff()
     past_returns = returns.groupby(
         [returns.index.year, returns.index.month]).sum().unstack()
     past_returns['Total'] = past_returns.sum(numeric_only=True, axis=1)
