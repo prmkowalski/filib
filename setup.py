@@ -35,7 +35,6 @@ setup(
     python_requires='>=3.6',
     install_requires=[
         'pandas',
-        'v20==3.0.25.0',
     ],
     include_package_data=True,
     zip_safe=False,
