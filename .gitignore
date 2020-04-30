@@ -2,7 +2,7 @@ filib/config.ini
 *.log
 *.pickle
 .pylint.d/
-filib/_version.py
+src/filib/_version.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

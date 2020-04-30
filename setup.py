@@ -1,3 +1,10 @@
+"""A setuptools based setup module.
+
+See:
+https://packaging.python.org/guides/distributing-packages-using-setuptools/
+https://github.com/pypa/sampleproject
+"""
+
 from os import path
 
 from setuptools import setup, find_packages
@@ -27,10 +34,13 @@ setup(
         'Topic :: Office/Business :: Financial :: Investment',
         'Topic :: Software Development :: Libraries',
     ],
-    packages=find_packages(),
+    package_dir={'': 'src'},
+    packages=find_packages(where='src'),
     python_requires='>=3.6',
     install_requires=['pandas'],
     setup_requires=['setuptools_scm'],
-    include_package_data=True,
-    zip_safe=False,
+    project_urls={
+        'Bug Tracker': 'https://github.com/makr3la/filib/issues',
+        'Source Code': 'https://github.com/makr3la/filib',
+    },
 )
