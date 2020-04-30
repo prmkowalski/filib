@@ -9,45 +9,59 @@ __all__ = [
 import configparser
 from datetime import datetime
 from inspect import getmembers, isfunction
+import json
 import logging
 import os
 import pickle
 import time
+from urllib.parse import urlencode
+import urllib.request as ur
 import warnings
 
 import pandas as pd
-import v20
+try:
+    from pandas import json_normalize
+except ImportError:
+    from pandas.io.json import json_normalize
 
 from .utils import get_factor_data, combine_factors, get_performance
 
 
-def _get_api():
-    config = configparser.ConfigParser()
-    config_filepath = os.path.join(os.path.dirname(__file__), 'config.ini')
+def _get_headers():
     try:
-        with open(config_filepath, 'r') as config_file:
-            config.read_file(config_file)
-            hostname = config.get('oanda', 'hostname')
-            token = config.get('oanda', 'token')
-    except FileNotFoundError:
-        logger = logging.getLogger(__name__)
-        logger.error(
-            f'OANDA v20 REST API config file is not found. '
-            f'Please answer to generate it:')
-        account_type = input(
-            '- What is your account type? `Live` or `Practice`?\n')
-        if account_type.lower() in ['live', 'l']:
-            hostname = 'api-fxtrade.oanda.com'
-        elif account_type.lower() in ['practice', 'p']:
-            hostname = 'api-fxpractice.oanda.com'
-        else:
-            raise ValueError(f'Account type `{account_type}` not available.')
-        token = input('- Provide your personal access token:\n')
-        config['oanda'] = {'hostname': hostname, 'token': token}
-        with open(config_filepath, 'w') as config_file:
-            config.write(config_file)
-    api = v20.Context(hostname=hostname, token=token)
-    return api
+        hostname = os.environ['OANDA_HOSTNAME']
+        token = os.environ['OANDA_TOKEN']
+    except KeyError:
+        config = configparser.ConfigParser()
+        config_filepath = os.path.join(os.path.dirname(__file__), 'config.ini')
+        try:
+            with open(config_filepath, 'r') as config_file:
+                config.read_file(config_file)
+                hostname = config.get('oanda', 'hostname')
+                token = config.get('oanda', 'token')
+        except FileNotFoundError:
+            logger = logging.getLogger(__name__)
+            logger.error(
+                f'OANDA v20 REST API config file is not found. '
+                f'Please answer to generate it:')
+            account_type = input(
+                '- What is your account type? `Live` or `Practice`?\n')
+            if account_type.lower() in ['live', 'l']:
+                hostname = 'https://api-fxtrade.oanda.com'
+            elif account_type.lower() in ['practice', 'p']:
+                hostname = 'https://api-fxpractice.oanda.com'
+            else:
+                raise ValueError(f'Type `{account_type}` not available.')
+            token = input('- Provide your personal access token:\n')
+            config['oanda'] = {'hostname': hostname, 'token': token}
+            with open(config_filepath, 'w') as config_file:
+                config.write(config_file)
+    headers = {'Host': hostname,
+               'Authorization': f'Bearer {token}',
+               'Content-Type': 'application/json',
+               'Connection': 'Keep-Alive',
+               'AcceptDatetimeFormat':'RFC3339'}
+    return headers
 
 
 def find_instruments(symbol, universe):
@@ -59,10 +73,8 @@ def find_instruments(symbol, universe):
     return instruments
 
 
-def get_price_data(instruments, price='M', granularity='D', count=500,
-                   end=datetime.utcnow().timestamp(), symbol=None,
-                   save=False, dailyAlignment=0, alignmentTimezone='UTC',
-                   weeklyAlignment='Monday'):
+def get_price_data(instruments, symbol=None, save=False, granularity='D',
+                   count=500, end=datetime.utcnow().timestamp(), **kwargs):
     freq = {
         'S5': '5S',  # 5 second candlesticks, minute alignment
         'S10': '10S',  # 10 second candlesticks, minute alignment
@@ -89,7 +101,7 @@ def get_price_data(instruments, price='M', granularity='D', count=500,
     if granularity not in freq:
         raise ValueError(f'Granularity `{granularity}` not available - '
                          f'choose from {list(freq.keys())}.')
-    h = str(hash(f'{instruments} {price} {granularity} {count} {symbol}'))
+    h = str(hash(f'{instruments} {symbol} {granularity} {count} {kwargs}'))
     try:
         with open(h + '.pickle', 'rb') as f:
             price_data = pickle.load(f)
@@ -101,50 +113,36 @@ def get_price_data(instruments, price='M', granularity='D', count=500,
         for instrument in instruments:
             if instrument not in ALL_SYMBOLS:
                 raise ValueError(f'Instrument `{instrument}` not available.')
-            toTime = end
+            to_time = end
             responses = []
             for c in count_list:
-                api = _get_api()
-                r = api.instrument.candles(instrument, price=price,
-                                           granularity=granularity,
-                                           count=c, toTime=toTime,
-                                           dailyAlignment=dailyAlignment,
-                                           alignmentTimezone=alignmentTimezone,
-                                           weeklyAlignment=weeklyAlignment)
-                responses.append(r)
-                toTime = r.get('candles')[0].time
+                headers = _get_headers()
+                endpoint = f'/v3/instruments/{instrument}/candles'
+                params = {'granularity': granularity, 'count': c,
+                          'to': to_time, **kwargs}
+                url = headers['Host'] + endpoint + '?' + urlencode(params)
+                req = ur.Request(url, headers=headers)
+                with ur.urlopen(req) as r:
+                    df = json_normalize(
+                        json.loads(r.read()), 'candles').set_index('time')
+                    to_time = df.index[0]
+                    df.index = pd.to_datetime(df.index, utc=True)
+                    df.drop('complete', axis=1, inplace=True)
+                    columns = {
+                        **{c: 'open' for c in df.columns if c.endswith('.o')},
+                        **{c: 'high' for c in df.columns if c.endswith('.h')},
+                        **{c: 'low' for c in df.columns if c.endswith('.l')},
+                        **{c: 'close' for c in df.columns if c.endswith('.c')}
+                    }
+                    df.rename(columns=columns, inplace=True)
+                    df = df.resample(freq[granularity]).agg(
+                        {'open': 'first', 'high': 'max', 'low': 'min',
+                         'close': 'last', 'volume': 'sum'})
+                    df = df.astype(float)
+                responses.append(df)
                 time.sleep(0.1)
-            for r in responses:
-                price_o, price_h, price_l, price_c, volume = {}, {}, {}, {}, {}
-                for candle in r.get('candles'):
-                    if price == 'M':
-                        price_o[candle.time] = candle.mid.o
-                        price_h[candle.time] = candle.mid.h
-                        price_l[candle.time] = candle.mid.l
-                        price_c[candle.time] = candle.mid.c
-                        volume[candle.time] = candle.volume
-                    elif price == 'A':
-                        price_o[candle.time] = candle.ask.o
-                        price_h[candle.time] = candle.ask.h
-                        price_l[candle.time] = candle.ask.l
-                        price_c[candle.time] = candle.ask.c
-                        volume[candle.time] = candle.volume
-                    elif price == 'B':
-                        price_o[candle.time] = candle.bid.o
-                        price_h[candle.time] = candle.bid.h
-                        price_l[candle.time] = candle.bid.l
-                        price_c[candle.time] = candle.bid.c
-                        volume[candle.time] = candle.volume
-                df = pd.DataFrame([price_o, price_h, price_l, price_c, volume],
-                                  dtype=float).T
-                df.index = pd.to_datetime(df.index, utc=True)
-                df = df.resample(freq[granularity]).agg(
-                    {0: 'first', 1: 'max', 2: 'min', 3: 'last', 4: 'sum'})
-                df.columns = pd.MultiIndex.from_product(
-                    [[r.get('instrument')],
-                     ['open', 'high', 'low', 'close', 'volume']])
-                objs.append(df)
-        price_data = pd.concat(objs).sort_index().groupby(level=0).first()
+            objs.append(pd.concat(responses).sort_index())
+        price_data = pd.concat(objs, axis=1, keys=instruments)
         price_data = _arrange_price_data(price_data, symbol)
         price_data = price_data.ffill().dropna()
         price_data.index.freq = price_data.index.inferred_freq
@@ -188,7 +186,6 @@ class Oanda:
         file_handler.setFormatter(logging.Formatter(
             '%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
         self.logger.addHandler(file_handler)
-        self.api = _get_api()
         self.instruments = instruments
         self.periods = periods
         self.split = split
@@ -272,35 +269,62 @@ class Oanda:
         weights = self.combined_factor_data['weights']
         positions = weights.loc[weights.index.get_level_values('date')[-1]]
         positions.sort_values(inplace=True)
-        account = self.api.account.get(self.accountID).get('account')
+        headers = _get_headers()
+        endpoint = f'/v3/accounts/{self.accountID}'
+        url = headers['Host'] + endpoint
+        req = ur.Request(url, headers=headers)
+        with ur.urlopen(req) as r:
+            account = pd.read_json(r.read())['account'].apply(
+                pd.to_numeric, errors='ignore')
+            trades = json_normalize(account.trades).apply(
+                pd.to_numeric, errors='ignore')
         orders = pd.Series(name=self.name)
-        for asset in positions.loc[positions != 0].index:
-            for instrument in self.instruments:
-                base, quote = instrument.split('_')
-                pricing = self.api.pricing.get(
-                    self.accountID, instruments=instrument).get('prices')[-1]
-                base_home_conversion_factor = (
-                    ((pricing.closeoutAsk + pricing.closeoutBid) / 2) *
-                    ((pricing.quoteHomeConversionFactors.positiveUnits +
-                      pricing.quoteHomeConversionFactors.negativeUnits) / 2))
-                nav = account.NAV / base_home_conversion_factor
+        for instrument in self.instruments:
+            base, quote = instrument.split('_')
+            params = {'instruments': instrument}
+            url = headers['Host'] + endpoint + '/pricing?' + urlencode(params)
+            req = ur.Request(url, headers=headers)
+            with ur.urlopen(req) as r:
+                pricing = json_normalize(json.loads(r.read()), 'prices').apply(
+                    pd.to_numeric, errors='ignore').squeeze()
+            base_home_conversion_factor = (
+                ((pricing.closeoutAsk + pricing.closeoutBid) / 2) *
+                ((pricing['quoteHomeConversionFactors.positiveUnits'] +
+                  pricing['quoteHomeConversionFactors.negativeUnits']) / 2))
+            nav = account.NAV / base_home_conversion_factor
+            for asset in positions.loc[positions != 0].index:
                 if asset in base or asset == instrument:
                     orders[instrument] = int(round(
                         positions[asset] * nav * self.leverage, -1))
                 elif asset in quote:
                     orders[instrument] = int(round(
                         -positions[asset] * nav * self.leverage, -1))
-        for trade in self.api.trade.list_open(self.accountID).get('trades'):
+        for index, trade in trades.iterrows():
             if keep_current_trades and trade.instrument in orders.index:
                 orders[trade.instrument] = (
                     orders[trade.instrument] - trade.currentUnits)
             elif live:
-                self.api.trade.close(self.accountID, trade.id)
+                url = headers['Host'] + endpoint + f'/trades/{trade.id}/close'
+                req = ur.Request(url, headers=headers, method='PUT')
+                with ur.urlopen(req) as r:
+                    pass
         orders = orders.loc[orders != 0]
         if live:
+            url = headers['Host'] + endpoint + '/orders'
             for instrument, units in orders.items():
-                self.api.order.market(
-                    self.accountID, instrument=instrument, units=units)
+                params = {
+                    'order': {
+                        'units': units,
+                        'instrument': instrument,
+                        'timeInForce': 'FOK',
+                        'type': 'MARKET',
+                        'positionFill': 'DEFAULT'
+                    }
+                }
+                data = json.dumps(params).encode('ascii')
+                req = ur.Request(url, data=data, headers=headers)
+                with ur.urlopen(req) as r:
+                    pass
         self.logger.info(
             f"Portfolio from `{weights.index.levels[0][-1]}`:\n"
             f"\n"

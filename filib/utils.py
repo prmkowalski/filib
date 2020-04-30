@@ -1,14 +1,16 @@
-"""Module with functions used throughout the application."""
+"""Module with functions used throughout the library."""
 
 __all__ = ['get_factor_data', 'combine_factors', 'get_performance']
 
 from datetime import datetime, timezone
 
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+    plt.style.use('ggplot')
+    plt.rcParams['figure.figsize'] = (12, 8)
+except ImportError:
+    pass
 import pandas as pd
-
-plt.style.use('ggplot')
-plt.rcParams['figure.figsize'] = (12, 8)
 
 
 def get_factor_data(factor, price_data, periods=None, split=3,
@@ -20,7 +22,7 @@ def get_factor_data(factor, price_data, periods=None, split=3,
     factor.replace([float('-inf'), float('inf')], float('nan'), inplace=True)
     factor = factor.resample(prices.index.freq).ffill()[prices.index[0]:]
     periods = [1] if not periods else [1] + sorted(periods)
-    deltas = [period * prices.index.to_series(keep_tz=True).diff().mode()
+    deltas = [period * prices.index.to_series().diff().mode()
               for period in periods]
     deltas = [(delta.to_string(index=False).replace(':', 'h', 1).replace(
         ':', 'm') + 's').replace(' dayss', 'D') for delta in deltas]
@@ -102,7 +104,7 @@ def get_performance(factor_data):
     cagr = (cum_returns[-1] / cum_returns[0])**(1 / years) - 1
     annualized_volatility = returns.std() * (len(returns) / years)**.5
     drawdown = 1 - cum_returns.div(cum_returns.cummax())
-    dd_duration = drawdown[drawdown == 0].index.to_series(keep_tz=True).diff()
+    dd_duration = drawdown[drawdown == 0].index.to_series().diff()
     past_returns = returns.groupby(
         [returns.index.year, returns.index.month]).sum().unstack()
     past_returns['Total'] = past_returns.sum(numeric_only=True, axis=1)
@@ -135,11 +137,12 @@ def get_performance(factor_data):
         f"\n"
         f"{past_returns.to_string(index_names=False)}\n"
     )
-    cum_returns.plot(title='Cumulative Returns', legend=True, linewidth=3)
-    benchmark_rets = factor_data[periods[0]].groupby(level=0).sum()
-    benchmark_cum_rets = (1 + benchmark_rets).cumprod().rename('benchmark')
-    benchmark_cum_rets.plot(legend=True, secondary_y=True, color='gray')
-    plt.show()
+    if 'plt' in globals():
+        cum_returns.plot(title='Cumulative Returns', legend=True, linewidth=3)
+        benchmark_rets = factor_data[periods[0]].groupby(level=0).sum()
+        benchmark_cum_rets = (1 + benchmark_rets).cumprod().rename('benchmark')
+        benchmark_cum_rets.plot(legend=True, secondary_y=True, color='gray')
+        plt.show()
     summary = pd.Series({'ic': ic.iloc[0, 0], 'autocorr': autocorr,
                          'sharpe': annualized_sharpe, 'beta': beta,
                          'alpha': annualized_alpha, 'win': win_rate,
