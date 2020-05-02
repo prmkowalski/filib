@@ -80,9 +80,9 @@ def get_performance(factor_data):
         keys=['Min', 'Max', 'Mean', 'Size', 'Returns (bps)'], axis=1)
     ic = pd.DataFrame()
     for period in periods:
-        correlation = factor_data.dropna().groupby(level=0).apply(
-            lambda x: x['factor'].corr(x[period], method='spearman'))
-        ic.loc['- Information Coefficient:', period] = correlation.mean()
+        correlation = factor_data[['factor', period]].dropna().groupby(
+            level=0).corr(method='spearman').prod(axis=1).mean()
+        ic.loc['- Information Coefficient:', period] = correlation
     autocorr = factor_data['factor'].unstack().rank(axis=1).apply(
         lambda col: col.autocorr()).mean()
     duration = returns.index[-1] - returns.index[0]

@@ -16,7 +16,6 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
 
 setup(
     name='filib',
-    use_scm_version={'write_to': 'filib/_version.py'},
     description='Factor Investing Library',
     long_description=long_description,
     url='https://github.com/makr3la/filib',
