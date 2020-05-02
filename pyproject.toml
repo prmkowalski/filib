@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=42", "wheel", "setuptools_scm[toml]>=3.4"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+write_to = "src/filib/_version.py"
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+envlist = py{36,37,38}-pandas{0,1}, coverage-report
+minversion = 3.3.0
+isolated_build = true
+skip_missing_interpreters = true
+
+[gh-actions]
+python =
+    3.6: py36, coverage-report
+    3.7: py37, coverage-report
+    3.8: py38, coverage-report
+
+[testenv]
+passenv =
+    OANDA_HOSTNAME
+    OANDA_TOKEN
+    OANDA_ACCOUNT_ID
+deps =
+    pytest
+    coverage[toml]>=5.0.2
+    pandas0: pandas<1
+    pandas1: pandas>=1
+commands = coverage run -m pytest {posargs}
+
+[testenv:coverage-report]
+skip_install = true
+deps = coverage[toml]>=5.0.2
+commands =
+    coverage combine
+    coverage report
+"""
+
+[tool.coverage.run]
+parallel = true
+source = ["filib"]
+
+[tool.coverage.paths]
+source = ["src", ".tox/*/site-packages"]
+
+[tool.coverage.report]
+show_missing = true

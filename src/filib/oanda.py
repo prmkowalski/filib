@@ -278,7 +278,7 @@ class Oanda:
                 pd.to_numeric, errors='ignore')
             trades = json_normalize(account.trades).apply(
                 pd.to_numeric, errors='ignore')
-        orders = pd.Series(name=self.name)
+        orders = pd.Series(name=self.name, dtype=int)
         for instrument in self.instruments:
             base, quote = instrument.split('_')
             params = {'instruments': instrument}
