@@ -17,6 +17,10 @@ filib
     :target: https://github.com/makr3la/filib/blob/master/LICENSE
     :alt: GitHub
 
+.. image:: https://github.com/makr3la/filib/workflows/CI/badge.svg
+    :target: https://github.com/makr3la/filib/actions?query=workflow%3ACI+branch%3Amaster
+    :alt: CI - Status
+
 `Factor Investing <https://en.wikipedia.org/wiki/Factor_investing>`_
 LIBrary is a lightweight algorithmic trading Python library built for easy
 testing of predictive factors and portfolio rebalance via
