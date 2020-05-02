@@ -13,6 +13,12 @@ minversion = 3.3.0
 isolated_build = true
 skip_missing_interpreters = true
 
+[gh-actions]
+python =
+    3.6: py36
+    3.7: py37
+    3.8: py38
+
 [testenv]
 passenv =
     OANDA_HOSTNAME
