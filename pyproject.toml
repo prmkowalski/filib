@@ -1,9 +1,6 @@
 [build-system]
-requires = ["setuptools>=42", "wheel", "setuptools_scm[toml]>=3.4"]
+requires = ["setuptools>=40.8.0", "setuptools_scm", "wheel"]
 build-backend = "setuptools.build_meta"
-
-[tool.setuptools_scm]
-write_to = "src/filib/_version.py"
 
 [tool.tox]
 legacy_tox_ini = """
