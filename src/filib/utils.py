@@ -1,6 +1,8 @@
 """Module with functions used throughout the library."""
 
-__all__ = ['get_factor_data', 'combine_factors', 'get_performance']
+__all__ = [
+    'get_factor_data', 'combine_factors', 'get_performance', 'print_progress'
+]
 
 from datetime import datetime, timezone
 
@@ -149,3 +151,32 @@ def get_performance(factor_data):
                          'rr': risk_reward, 'profit': profit_factor,
                          'cagr': cagr}).rename(factor_data.name)
     return log, summary
+
+
+def print_progress(iteration, total, prefix='', suffix='', bar_size=30):
+    """
+    Print a string-based progress bar.
+
+    Parameters
+    ----------
+    iteration : int
+        Current iteration number.
+    total : int
+        Total number of iterations.
+    prefix : str, optional
+        Additional prefix (beginning) message.
+    suffix : str, optional
+        Additional suffix (ending) message.
+    bar_size : int, optional
+        Number of characters on the bar.
+
+    """
+    progress = iteration / total
+    filled_length = int(progress * bar_size)
+    bar = '█' * filled_length + '-' * (bar_size - filled_length)
+    print(
+        f'\r{prefix} |{bar}| {iteration}/{total} [{progress:.0%}] {suffix}',
+        end='\033[K'
+    )
+    if iteration == total:
+        print()

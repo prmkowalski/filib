@@ -24,7 +24,9 @@ try:
 except ImportError:
     from pandas.io.json import json_normalize
 
-from .utils import get_factor_data, combine_factors, get_performance
+from .utils import (
+    get_factor_data, combine_factors, get_performance, print_progress
+)
 
 
 def _get_headers():
@@ -60,7 +62,7 @@ def _get_headers():
                'Authorization': f'Bearer {token}',
                'Content-Type': 'application/json',
                'Connection': 'Keep-Alive',
-               'AcceptDatetimeFormat':'RFC3339'}
+               'AcceptDatetimeFormat': 'RFC3339'}
     return headers
 
 
@@ -110,7 +112,10 @@ def get_price_data(instruments, symbol=None, save=False, granularity='D',
         if count % 5000 != 0:
             count_list.append(count % 5000)
         objs = []
-        for instrument in instruments:
+        prefix = 'Collecting price data:'
+        start_time = time.time()
+        for i, instrument in enumerate(instruments):
+            print_progress(i, len(instruments), prefix, f'`{instrument}`')
             if instrument not in ALL_SYMBOLS:
                 raise ValueError(f'Instrument `{instrument}` not available.')
             to_time = end
@@ -142,6 +147,8 @@ def get_price_data(instruments, symbol=None, save=False, granularity='D',
                 responses.append(df)
                 time.sleep(0.1)
             objs.append(pd.concat(responses).sort_index())
+        suffix = f'in {time.time() - start_time:.1f} s'
+        print_progress(len(instruments), len(instruments), prefix, suffix)
         price_data = pd.concat(objs, axis=1, keys=instruments)
         price_data = _arrange_price_data(price_data, symbol)
         price_data = price_data.ffill().dropna()
@@ -173,6 +180,8 @@ class Oanda:
     def __init__(self, instruments, granularity='D', count=500, symbol=None,
                  save=False, periods=None, split=3, accountID=None,
                  leverage=1, long_short=False, combination='sum_of_weights'):
+        self.__dict__.update(locals())
+        del self.__dict__['self']
         self.name = str(self.__class__).split('.')[-1].split("'")[0]
         self.logger = logging.getLogger(self.name)
         self.logger.setLevel(logging.INFO)
@@ -186,13 +195,10 @@ class Oanda:
         file_handler.setFormatter(logging.Formatter(
             '%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
         self.logger.addHandler(file_handler)
-        self.instruments = instruments
-        self.periods = periods
-        self.split = split
-        self.accountID = accountID
-        self.leverage = leverage
-        self.long_short = long_short
-        self.combination = combination
+        self.factors = {}
+        for name, function in getmembers(self.__class__, predicate=isfunction):
+            if self.name in str(function):
+                self.factors[name] = function
         self.price_data = get_price_data(instruments, granularity=granularity,
                                          count=count, symbol=symbol, save=save)
         self.open = self.price_data.xs('open', axis=1, level=1)
@@ -202,22 +208,21 @@ class Oanda:
         self.volume = self.price_data.xs('volume', axis=1, level=1)
         self.returns = self.close.pct_change()[1:]
         self.factor_data = {}
-        for name, function in getmembers(self.__class__, predicate=isfunction):
-            if self.name in str(function):
-                start_time = time.time()
-                try:
-                    factor, s = function(self)
-                except ValueError:
-                    factor, s = function(self), 3
-                except TypeError:
-                    raise TypeError(f'`{name}` must return atleast factor.')
-                self.factor_data[name] = get_factor_data(
-                    factor, self.price_data, periods, s, leverage, long_short,
-                    name)
-                elapsed = time.time() - start_time
-                self.logger.info(
-                    f'Factor `{name}` initialized in {elapsed:.1f} s.')
-        self.factors = list(self.factor_data.keys())
+        prefix = 'Preparing factor data:'
+        start_time = time.time()
+        for i, (name, function) in enumerate(self.factors.items()):
+            print_progress(i, len(self.factors), prefix, f'`{name}`')
+            try:
+                factor, s = function(self)
+            except ValueError:
+                factor, s = function(self), 3
+            except TypeError:
+                raise TypeError(f'`{name}` must return atleast factor.')
+            self.factor_data[name] = get_factor_data(
+                factor, self.price_data, periods, s, leverage, long_short,
+                name)
+        suffix = f'in {time.time() - start_time:.1f} s'
+        print_progress(len(self.factors), len(self.factors), prefix, suffix)
         self.combined_factor = combine_factors(self.factor_data, combination)
         self.combined_factor_data = get_factor_data(
             self.combined_factor, self.price_data, periods, split, leverage,
@@ -242,8 +247,9 @@ class Oanda:
         return summary
 
     def select(self, rules, swap=None):
-        summaries = [self.performance(factor) for factor in self.factors]
-        select = pd.concat(summaries, axis=1).T.query(rules)
+        if not hasattr(self, 'summaries'):
+            self.summaries = [self.performance(f) for f in self.factors]
+        select = pd.concat(self.summaries, axis=1).T.query(rules)
         sign = pd.Series(1, select.index) if not swap else select[swap]
         sign[sign > 0], sign[sign < 0] = 1, -1
         select_factor_data = {
