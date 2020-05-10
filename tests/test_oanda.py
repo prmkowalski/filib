@@ -33,9 +33,10 @@ def test_strategy():
     test = SampleFactors(
         instruments = ['EUR_USD', 'GBP_USD', 'USD_JPY', 'AUD_USD', 'NZD_USD',
                        'USD_CAD', 'USD_CHF', 'USD_NOK', 'USD_SEK'],
-        granularity = 'D',
+        granularity = 'H1',
         count = 500,
         symbol = 'USD',
+        save = True,
         periods = (1, 2, 3),
         split = 3,
         accountID = os.environ['OANDA_ACCOUNT_ID'],
@@ -49,4 +50,6 @@ def test_strategy():
     test.select(
         rules = 'abs(ic) > .01 or profit > 1',
         swap = 'cagr')
+    test.performance()
+    # test.select(rules = 'abs(ic) > 1')  # No objects to concatenate
     test.rebalance()

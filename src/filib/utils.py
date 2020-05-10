@@ -5,6 +5,7 @@ __all__ = [
 ]
 
 from datetime import datetime, timezone
+import sys
 
 try:
     import matplotlib.pyplot as plt
@@ -59,15 +60,18 @@ def get_factor_data(factor, price_data, periods=None, split=3,
 
 def combine_factors(factor_data, combination):
     if combination == ('sum_of_weights').lower():
-        combined_factor = pd.concat(
-            [factor['weights'] for factor in factor_data.values()],
-            axis=1).sum(axis=1).unstack()
+        try:
+            combined_factor = pd.concat(
+                [factor['weights'] for factor in factor_data.values()],
+                axis=1).sum(axis=1).unstack()
+        except ValueError:  # No objects to concatenate
+            return None     # Should return an empty factor
     else:
         raise ValueError(f'Combination `{combination}` not available.')
     return combined_factor
 
 
-def get_performance(factor_data):
+def get_performance(factor_data, plot=True):
     factor_index = list(factor_data.columns).index('factor')
     periods = factor_data.columns[:factor_index]
     returns_column = factor_data.columns[factor_index + 3]
@@ -139,7 +143,7 @@ def get_performance(factor_data):
         f"\n"
         f"{past_returns.to_string(index_names=False)}\n"
     )
-    if 'plt' in globals():
+    if 'plt' in globals() and plot:
         cum_returns.plot(title='Cumulative Returns', legend=True, linewidth=3)
         benchmark_rets = factor_data[periods[0]].groupby(level=0).sum()
         benchmark_cum_rets = (1 + benchmark_rets).cumprod().rename('benchmark')
@@ -153,13 +157,13 @@ def get_performance(factor_data):
     return log, summary
 
 
-def print_progress(iteration, total, prefix='', suffix='', bar_size=30):
+def print_progress(current, total, prefix='', suffix='', bar_size=30):
     """
-    Print a string-based progress bar.
+    Print a string-based progress bar if connected to a console.
 
     Parameters
     ----------
-    iteration : int
+    current : int
         Current iteration number.
     total : int
         Total number of iterations.
@@ -171,12 +175,12 @@ def print_progress(iteration, total, prefix='', suffix='', bar_size=30):
         Number of characters on the bar.
 
     """
-    progress = iteration / total
-    filled_length = int(progress * bar_size)
-    bar = '█' * filled_length + '-' * (bar_size - filled_length)
-    print(
-        f'\r{prefix} |{bar}| {iteration}/{total} [{progress:.0%}] {suffix}',
-        end='\033[K'
-    )
-    if iteration == total:
-        print()
+    if sys.stdout.isatty() or 'ipykernel' in sys.modules:
+        progress = current / total
+        filled_length = int(progress * bar_size)
+        bar = '█' * filled_length + '-' * (bar_size - filled_length)
+        print(
+            f'\r{prefix} |{bar}| {current}/{total} [{progress:.0%}] {suffix}',
+            end='\033[K'
+        )
+        if current == total: print()

@@ -234,42 +234,50 @@ class Oanda:
         self.c = self.close
         self.v = self.volume
         self.fd = self.factor_data
-        self.cfd = self.combined_factor_data
+        # self.cfd = self.combined_factor_data
 
-    def performance(self, factor=None):
+    def performance(self, factor=None, output=True):
         warnings.filterwarnings('ignore', category=UserWarning)
         if factor:
-            log, summary = get_performance(self.factor_data[factor])
-            self.logger.info(log)
+            log, summary = get_performance(self.factor_data[factor], output)
+            if output: self.logger.info(log)
             return summary
-        log, summary = get_performance(self.combined_factor_data)
-        self.logger.info(log)
+        log, summary = get_performance(self.combined_factor_data, output)
+        if output: self.logger.info(log)
         return summary
 
     def select(self, rules, swap=None):
         if not hasattr(self, 'summaries'):
-            self.summaries = [self.performance(f) for f in self.factors]
+            prefix = 'Preparing performance:'
+            start_time = time.time()
+            self.summaries = []
+            for i, factor in enumerate(self.factor_data):
+                print_progress(i, len(self.factor_data), prefix, f'`{factor}`')
+                self.summaries.append(self.performance(factor, False))
+            suffix = f'in {time.time() - start_time:.1f} s'
+            print_progress(
+                len(self.factor_data), len(self.factor_data), prefix, suffix)
         select = pd.concat(self.summaries, axis=1).T.query(rules)
         sign = pd.Series(1, select.index) if not swap else select[swap]
         sign[sign > 0], sign[sign < 0] = 1, -1
-        select_factor_data = {
+        self.select_factor_data = {
             f'{int(sign[name])}{name}'.replace('1', '', 1):
             sign[name] * factor_data.loc[:, 'factor':]
             for name, factor_data in self.factor_data.items()
             if name in select.index}
-        if not select_factor_data:
+        if not self.select_factor_data:
             self.logger.info(f'No factor satisfies the rules `{rules}`.')
-            return None
-        self.logger.info(f"Factors with signs that meet the rules `{rules}`:\n"
-                         f"\n"
-                         f"{sign.to_string()}\n")
-        combined_factor = combine_factors(select_factor_data, self.combination)
-        combined_factor_data = get_factor_data(
-            combined_factor, self.price_data, self.periods, self.split,
+        else:
+            self.logger.info(
+                f"Factors with signs that meet the rules `{rules}`:\n"
+                f"\n"
+                f"{sign.to_string()}\n")
+        self.combined_factor = combine_factors(
+            self.select_factor_data, self.combination)
+        self.combined_factor_data = get_factor_data(
+            self.combined_factor, self.price_data, self.periods, self.split,
             self.leverage, self.long_short, f'{self.name}_selected')
-        log, summary = get_performance(combined_factor_data)
-        self.logger.info(log)
-        return sign.rename('selection'), summary
+        # Redefine self.factors
 
     def rebalance(self, live=False, keep_current_trades=False):
         weights = self.combined_factor_data['weights']
