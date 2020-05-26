@@ -2,15 +2,16 @@
 
 __all__ = [
     'get_iso_codes', 'correlation', 'delay', 'delta', 'product', 'rank',
-    'scale', 'stddev', 'ts_sum', 'ts_min', 'ts_max', 'ts_rank'
+    'scale', 'stddev', 'ts_sum', 'ts_min', 'ts_max', 'ts_rank', 'z_score',
+    'rsi'
 ]
 
-from typing import Dict
+from typing import Dict, Optional
 
 import pandas as pd
 
 
-def get_iso_codes(price_data: pd.DataFrame = None) -> Dict[str, str]:
+def get_iso_codes(price_data: Optional[pd.DataFrame] = None) -> Dict[str, str]:
     """Return {country ISO 3166 alpha-3: currency ISO 4217} codes."""
     iso_codes = {
         'AUS': 'AUD',  # Australia
@@ -101,13 +102,13 @@ def ts_rank(x: pd.DataFrame, d: int) -> pd.DataFrame:
         lambda na: pd.Series(na).rank().to_numpy()[-1], raw=True)
 
 
-def z_score(x: pd.DataFrame, d: int) -> pd.DataFrame:
+def z_score(x: pd.DataFrame, d: int = 20) -> pd.DataFrame:
     """Return moving time-series standard score over the past d days."""
     return x.apply(lambda z: (z - z.rolling(d).mean()) / z.rolling(d).std())
 
 
-def rsi(x: pd.DataFrame, d: int) -> pd.DataFrame:
-    """Return the Relative Strength Index indicator over the past d days."""
+def rsi(x: pd.DataFrame, d: int = 14) -> pd.DataFrame:
+    """Return Relative Strength Index indicator over the past d days."""
     change = x.diff()
     upward, downward = change.copy(), change.copy()
     upward[change <= 0] = 0
