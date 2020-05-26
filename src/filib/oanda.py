@@ -8,12 +8,14 @@ __all__ = [
 
 import configparser
 from datetime import datetime
+from functools import lru_cache
 from inspect import getmembers, isfunction
 import json
 import logging
 import os
 import pickle
 import time
+from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 from urllib.parse import urlencode
 import urllib.request as ur
 import warnings
@@ -28,8 +30,11 @@ from .utils import (
     get_factor_data, combine_factors, get_performance, print_progress
 )
 
+Factor = Callable[..., Tuple[pd.Series, Optional[float]]]
 
-def _get_headers():
+
+def _get_headers() -> Dict[str, str]:
+    """Return the header fields for HTTP requests."""
     try:
         hostname = os.environ['OANDA_HOSTNAME']
         token = os.environ['OANDA_TOKEN']
@@ -66,7 +71,8 @@ def _get_headers():
     return headers
 
 
-def find_instruments(symbol, universe):
+def find_instruments(symbol: str, universe: List[str]) -> List[str]:
+    """Return the universe of instruments containing the given symbol."""
     instruments = []
     for instrument in universe:
         base, quote = instrument.split('_')
@@ -75,8 +81,16 @@ def find_instruments(symbol, universe):
     return instruments
 
 
-def get_price_data(instruments, symbol=None, save=False, granularity='D',
-                   count=500, end=datetime.utcnow().timestamp(), **kwargs):
+def get_price_data(
+    instruments: Sequence[str],
+    symbol: Optional[str] = None,  # Run _arrange_price_data
+    save: bool = False,  # Serialize price_data for faster retrieval
+    granularity: str = 'D',
+    count: int = 500,
+    end: Union[str, float] = datetime.utcnow().timestamp(),
+    **kwargs  # See https://developer.oanda.com/rest-live-v20/instrument-ep/
+) -> pd.DataFrame:
+    """Return historical OHLCV candles."""
     freq = {
         'S5': '5S',  # 5 second candlesticks, minute alignment
         'S10': '10S',  # 10 second candlesticks, minute alignment
@@ -159,7 +173,8 @@ def get_price_data(instruments, symbol=None, save=False, granularity='D',
     return price_data
 
 
-def _arrange_price_data(price_data, symbol):
+def _arrange_price_data(price_data: pd.DataFrame, symbol: str) -> pd.DataFrame:
+    """Arrange the instruments to be quoted in the given symbol."""
     arranged = pd.DataFrame()
     for instrument, price in price_data:
         base, quote = instrument.split('_')
@@ -177,13 +192,37 @@ def _arrange_price_data(price_data, symbol):
 
 
 class Oanda:
-    def __init__(self, instruments, granularity='D', count=500, symbol=None,
-                 save=False, periods=None, split=3, accountID=None,
-                 leverage=1, long_short=False, combination='sum_of_weights'):
-        self.__dict__.update(locals())
-        del self.__dict__['self']
-        self.name = str(self.__class__).split('.')[-1].split("'")[0]
-        self.logger = logging.getLogger(self.name)
+    """Base class for creating factor model."""
+
+    def __init__(
+        self,
+        instruments: Sequence[str],
+        symbol: Optional[str] = None,
+        granularity: str = 'D',
+        count: int = 500,
+        periods: Optional[List[int]] = None,
+        split: Union[int, Sequence[float]] = 3,
+        long_short: bool = False,
+        combination: str = 'sum_of_weights',
+        leverage: float = 1,
+        accountID: str = os.getenv('OANDA_ACCOUNT_ID'),
+    ) -> None:
+        self.instruments = instruments
+        self.symbol = symbol
+        self.granularity = granularity
+        self.count = count
+        self.periods = periods
+        self.split = split
+        self.long_short = long_short
+        self.combination = combination
+        self.leverage = leverage
+        self.accountID = accountID
+        self.esteem = None
+        self.factors = {}
+        for name, function in getmembers(self.__class__, predicate=isfunction):
+            if self.__class__.__name__ in str(function):
+                self.factors[name] = function
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.setLevel(logging.INFO)
         if self.logger.hasHandlers():
             self.logger.handlers.clear()
@@ -191,23 +230,213 @@ class Oanda:
         stream_handler.setFormatter(logging.Formatter(
             '%(name)s - %(levelname)s - %(message)s'))
         self.logger.addHandler(stream_handler)
-        file_handler = logging.FileHandler(f'{self.name}.log')
+        file_handler = logging.FileHandler(f'{self.__class__.__name__}.log')
         file_handler.setFormatter(logging.Formatter(
             '%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
         self.logger.addHandler(file_handler)
-        self.factors = {}
-        for name, function in getmembers(self.__class__, predicate=isfunction):
-            if self.name in str(function):
-                self.factors[name] = function
-        self.price_data = get_price_data(instruments, granularity=granularity,
-                                         count=count, symbol=symbol, save=save)
-        self.open = self.price_data.xs('open', axis=1, level=1)
-        self.high = self.price_data.xs('high', axis=1, level=1)
-        self.low = self.price_data.xs('low', axis=1, level=1)
-        self.close = self.price_data.xs('close', axis=1, level=1)
-        self.volume = self.price_data.xs('volume', axis=1, level=1)
-        self.returns = self.close.pct_change()[1:]
-        self.factor_data = {}
+
+    @property
+    def instruments(self) -> Sequence[str]:
+        """Universe of instrument symbols."""
+        return self._instruments
+
+    @instruments.setter
+    def instruments(self, value):
+        self._instruments = value
+        type(self).price_data.fget.cache_clear()
+        type(self).open.fget.cache_clear()
+        type(self).high.fget.cache_clear()
+        type(self).low.fget.cache_clear()
+        type(self).close.fget.cache_clear()
+        type(self).volume.fget.cache_clear()
+        type(self).returns.fget.cache_clear()
+        type(self).factor_data.fget.cache_clear()
+        type(self).combined_factor.fget.cache_clear()
+        type(self).combined_factor_data.fget.cache_clear()
+        type(self).summaries.fget.cache_clear()
+
+    @property
+    def symbol(self) -> Optional[str]:
+        """Optional symbol to arrange price data."""
+        return self._symbol
+
+    @symbol.setter
+    def symbol(self, value):
+        self._symbol = value
+        type(self).price_data.fget.cache_clear()
+        type(self).open.fget.cache_clear()
+        type(self).high.fget.cache_clear()
+        type(self).low.fget.cache_clear()
+        type(self).close.fget.cache_clear()
+        type(self).volume.fget.cache_clear()
+        type(self).returns.fget.cache_clear()
+        type(self).factor_data.fget.cache_clear()
+        type(self).combined_factor.fget.cache_clear()
+        type(self).combined_factor_data.fget.cache_clear()
+        type(self).summaries.fget.cache_clear()
+
+    @property
+    def granularity(self) -> str:
+        """Time interval between each candle and between each rebalance."""
+        return self._granularity
+
+    @granularity.setter
+    def granularity(self, value):
+        self._granularity = value
+        type(self).price_data.fget.cache_clear()
+        type(self).open.fget.cache_clear()
+        type(self).high.fget.cache_clear()
+        type(self).low.fget.cache_clear()
+        type(self).close.fget.cache_clear()
+        type(self).volume.fget.cache_clear()
+        type(self).returns.fget.cache_clear()
+        type(self).factor_data.fget.cache_clear()
+        type(self).combined_factor.fget.cache_clear()
+        type(self).combined_factor_data.fget.cache_clear()
+        type(self).summaries.fget.cache_clear()
+
+    @property
+    def count(self) -> int:
+        """Number of historical OHLCV candles."""
+        return self._count
+
+    @count.setter
+    def count(self, value):
+        self._count = value
+        type(self).price_data.fget.cache_clear()
+        type(self).open.fget.cache_clear()
+        type(self).high.fget.cache_clear()
+        type(self).low.fget.cache_clear()
+        type(self).close.fget.cache_clear()
+        type(self).volume.fget.cache_clear()
+        type(self).returns.fget.cache_clear()
+        type(self).factor_data.fget.cache_clear()
+        type(self).combined_factor.fget.cache_clear()
+        type(self).combined_factor_data.fget.cache_clear()
+        type(self).summaries.fget.cache_clear()
+
+    @property
+    def periods(self) -> Optional[List[int]]:
+        """Optional forward periods for factor decay analysis."""
+        return self._periods
+
+    @periods.setter
+    def periods(self, value):
+        self._periods = value
+        type(self).factor_data.fget.cache_clear()
+        type(self).combined_factor.fget.cache_clear()
+        type(self).combined_factor_data.fget.cache_clear()
+        type(self).summaries.fget.cache_clear()
+
+    @property
+    def split(self) -> Union[int, Sequence[float]]:
+        """Number of quantiles to split combined factor data."""
+        return self._split
+
+    @split.setter
+    def split(self, value):
+        self._split = value
+        type(self).combined_factor_data.fget.cache_clear()
+
+    @property
+    def long_short(self) -> bool:
+        """True if trade only top and bottom factor quantile, False if all."""
+        return self._long_short
+
+    @long_short.setter
+    def long_short(self, value):
+        self._long_short = value
+        type(self).factor_data.fget.cache_clear()
+        type(self).combined_factor.fget.cache_clear()
+        type(self).combined_factor_data.fget.cache_clear()
+        type(self).summaries.fget.cache_clear()
+
+    @property
+    def combination(self) -> str:
+        """Formula for combining factors together."""
+        return self._combination
+
+    @combination.setter
+    def combination(self, value):
+        self._combination = value
+        type(self).combined_factor.fget.cache_clear()
+        type(self).combined_factor_data.fget.cache_clear()
+        type(self).summaries.fget.cache_clear()
+
+    @property
+    def leverage(self) -> float:
+        """Multiplier for the portfolio positions."""
+        return self._leverage
+
+    @leverage.setter
+    def leverage(self, value):
+        self._leverage = value
+        type(self).factor_data.fget.cache_clear()
+        type(self).combined_factor.fget.cache_clear()
+        type(self).combined_factor_data.fget.cache_clear()
+        type(self).summaries.fget.cache_clear()
+
+    @property
+    def accountID(self) -> str:
+        """Oanda trading account identifier."""
+        return self._accountID
+
+    @accountID.setter
+    def accountID(self, value):
+        self._accountID = value
+
+    @property
+    @lru_cache()
+    def price_data(self) -> pd.DataFrame:
+        """Historical OHLCV candles data."""
+        return get_price_data(
+            instruments=self.instruments,
+            granularity=self.granularity,
+            count=self.count,
+            symbol=self.symbol,
+        )
+
+    @property
+    @lru_cache()
+    def open(self) -> pd.DataFrame:
+        """Opening price data."""
+        return self.price_data.xs('open', axis=1, level=1)
+
+    @property
+    @lru_cache()
+    def high(self) -> pd.DataFrame:
+        """High price data."""
+        return self.price_data.xs('high', axis=1, level=1)
+
+    @property
+    @lru_cache()
+    def low(self) -> pd.DataFrame:
+        """Low price data."""
+        return self.price_data.xs('low', axis=1, level=1)
+
+    @property
+    @lru_cache()
+    def close(self) -> pd.DataFrame:
+        """Closing price data."""
+        return self.price_data.xs('close', axis=1, level=1)
+
+    @property
+    @lru_cache()
+    def volume(self) -> pd.DataFrame:
+        """Tick volume data."""
+        return self.price_data.xs('volume', axis=1, level=1)
+
+    @property
+    @lru_cache()
+    def returns(self) -> pd.DataFrame:
+        """Percentage change in the closing price data."""
+        return self.close.pct_change()[1:]
+
+    @property
+    @lru_cache()
+    def factor_data(self) -> Dict[str, pd.DataFrame]:
+        """Individual factor values, quantiles, weights and returns."""
+        factor_data = {}
         prefix = 'Preparing factor data:'
         start_time = time.time()
         for i, (name, function) in enumerate(self.factors.items()):
@@ -218,68 +447,123 @@ class Oanda:
                 factor, s = function(self), 3
             except TypeError:
                 raise TypeError(f'`{name}` must return atleast factor.')
-            self.factor_data[name] = get_factor_data(
-                factor, self.price_data, periods, s, leverage, long_short,
-                name)
+            factor_data[name] = get_factor_data(
+                factor, self.price_data, self.periods, s, self.leverage,
+                self.long_short, name)
         suffix = f'in {time.time() - start_time:.1f} s'
         print_progress(len(self.factors), len(self.factors), prefix, suffix)
-        self.combined_factor = combine_factors(self.factor_data, combination)
-        self.combined_factor_data = get_factor_data(
-            self.combined_factor, self.price_data, periods, split, leverage,
-            long_short, f'{self.name}_combined')
-        self.pd = self.price_data
-        self.o = self.open
-        self.h = self.high
-        self.l = self.low
-        self.c = self.close
-        self.v = self.volume
-        self.fd = self.factor_data
-        # self.cfd = self.combined_factor_data
+        return factor_data
 
-    def performance(self, factor=None, output=True):
+    @property
+    @lru_cache()
+    def combined_factor(self) -> pd.DataFrame:
+        """Single factor obtained by combination."""
+        select_factor_data = getattr(self, 'select_factor_data', None)
+        if select_factor_data is not None:
+            return combine_factors(select_factor_data, self.combination)
+        else:
+            return combine_factors(self.factor_data, self.combination)
+
+    @combined_factor.setter
+    def combined_factor(self, value):
+        self._combined_factor = value
+        type(self).combined_factor_data.fget.cache_clear()
+
+    @property
+    @lru_cache()
+    def combined_factor_data(self) -> pd.DataFrame:
+        """Combined factor values, quantiles, weights and returns."""
+        return get_factor_data(
+            self.combined_factor,
+            self.price_data,
+            self.periods,
+            self.split,
+            self.leverage,
+            self.long_short,
+            f'{self.__class__.__name__}_combined',
+        )
+
+    @property
+    @lru_cache()
+    def summaries(self) -> List[pd.Series]:
+        """Past performance summaries of individual factors."""
+        summaries = []
+        prefix = 'Preparing performance:'
+        start_time = time.time()
+        for i, factor in enumerate(self.factor_data):
+            print_progress(i, len(self.factor_data), prefix, f'`{factor}`')
+            summaries.append(self.performance(factor, False))
+        suffix = f'in {time.time() - start_time:.1f} s'
+        print_progress(
+            len(self.factor_data), len(self.factor_data), prefix, suffix)
+        return summaries
+
+    def __repr__(self):
+        return f'{__class__.__name__}.{self.__class__.__name__}'
+
+    def __len__(self):
+        return len(self.factors)
+
+    def __getitem__(self, name: str):
+        return self.factors[name]
+
+    def __setitem__(self, name: str, function: Factor):
+        self.factors[name] = function
+        type(self).factor_data.fget.cache_clear()
+        type(self).combined_factor.fget.cache_clear()
+        type(self).combined_factor_data.fget.cache_clear()
+        type(self).summaries.fget.cache_clear()
+
+    def __delitem__(self, name: str):
+        del self.factors[name]
+        type(self).factor_data.fget.cache_clear()
+        type(self).combined_factor.fget.cache_clear()
+        type(self).combined_factor_data.fget.cache_clear()
+        type(self).summaries.fget.cache_clear()
+
+    def __iter__(self):
+        return iter(self.factors)
+
+    def performance(
+        self, factor: Optional[str] = None, output: bool = True
+    ) -> pd.Series:
+        """Return and show past performance summary."""
         warnings.filterwarnings('ignore', category=UserWarning)
         if factor:
             log, summary = get_performance(self.factor_data[factor], output)
-            if output: self.logger.info(log)
+            if output:
+                self.logger.info(log)
             return summary
         log, summary = get_performance(self.combined_factor_data, output)
-        if output: self.logger.info(log)
+        if output:
+            self.logger.info(log)
         return summary
 
-    def select(self, rules, swap=None):
-        if not hasattr(self, 'summaries'):
-            prefix = 'Preparing performance:'
-            start_time = time.time()
-            self.summaries = []
-            for i, factor in enumerate(self.factor_data):
-                print_progress(i, len(self.factor_data), prefix, f'`{factor}`')
-                self.summaries.append(self.performance(factor, False))
-            suffix = f'in {time.time() - start_time:.1f} s'
-            print_progress(
-                len(self.factor_data), len(self.factor_data), prefix, suffix)
+    def select(self, rules: str, swap: Optional[str] = None) -> None:
+        """Select and swap factors that meet the given rules."""
         select = pd.concat(self.summaries, axis=1).T.query(rules)
         sign = pd.Series(1, select.index) if not swap else select[swap]
         sign[sign > 0], sign[sign < 0] = 1, -1
-        self.select_factor_data = {
-            f'{int(sign[name])}{name}'.replace('1', '', 1):
-            sign[name] * factor_data.loc[:, 'factor':]
-            for name, factor_data in self.factor_data.items()
-            if name in select.index}
-        if not self.select_factor_data:
-            self.logger.info(f'No factor satisfies the rules `{rules}`.')
+        if sign.empty:
+            self.logger.error(f'No factor satisfies the rules `{rules}`.')
         else:
             self.logger.info(
                 f"Factors with signs that meet the rules `{rules}`:\n"
                 f"\n"
                 f"{sign.to_string()}\n")
-        self.combined_factor = combine_factors(
-            self.select_factor_data, self.combination)
-        self.combined_factor_data = get_factor_data(
-            self.combined_factor, self.price_data, self.periods, self.split,
-            self.leverage, self.long_short, f'{self.name}_selected')
-        # Redefine self.factors
+            self.select_factor_data = {
+                f'{int(sign[name])}{name}'.replace('1', '', 1):
+                sign[name] * factor_data.loc[:, 'factor':]
+                for name, factor_data in self.factor_data.items()
+                if name in select.index
+            }
+            type(self).combined_factor.fget.cache_clear()
+            type(self).combined_factor_data.fget.cache_clear()
 
-    def rebalance(self, live=False, keep_current_trades=False):
+    def rebalance(
+        self, live: bool = False, keep_current_trades: bool = False
+    ) -> None:
+        """Generate and place orders to rebalance portfolio."""
         weights = self.combined_factor_data['weights']
         positions = weights.loc[weights.index.get_level_values('date')[-1]]
         positions.sort_values(inplace=True)
@@ -292,7 +576,7 @@ class Oanda:
                 pd.to_numeric, errors='ignore')
             trades = json_normalize(account.trades).apply(
                 pd.to_numeric, errors='ignore')
-        orders = pd.Series(name=self.name, dtype=int)
+        orders = pd.Series(name=self.__class__.__name__, dtype=int)
         for instrument in self.instruments:
             base, quote = instrument.split('_')
             params = {'instruments': instrument}

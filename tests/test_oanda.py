@@ -1,10 +1,9 @@
-import os
-
 from filib.oanda import Oanda
 from filib.helpers import *
 
 
 class SampleFactors(Oanda):
+    """Four-factor test model."""
 
     def momentum(self):
         factor = self.returns
@@ -33,23 +32,29 @@ def test_strategy():
     test = SampleFactors(
         instruments = ['EUR_USD', 'GBP_USD', 'USD_JPY', 'AUD_USD', 'NZD_USD',
                        'USD_CAD', 'USD_CHF', 'USD_NOK', 'USD_SEK'],
+        symbol = 'USD',
         granularity = 'H1',
         count = 500,
-        symbol = 'USD',
-        save = True,
         periods = (1, 2, 3),
         split = 3,
-        accountID = os.environ['OANDA_ACCOUNT_ID'],
-        leverage = 7,
         long_short = True,
-        combination = 'sum_of_weights')
+        combination = 'sum_of_weights',
+        leverage = 7,
+    )
     assert isinstance(test, Oanda)
 
     # Run commands from the proposed workflow
     test.performance()
     test.select(
         rules = 'abs(ic) > .01 or profit > 1',
-        swap = 'cagr')
+        swap = 'cagr'
+    )
     test.performance()
-    # test.select(rules = 'abs(ic) > 1')  # No objects to concatenate
     test.rebalance()
+
+    # No objects to concatenate
+    test.select(rules = 'abs(ic) > 1')
+
+    # Update attributes
+    test.instruments = 'USD_CAD', 'USD_CHF', 'USD_NOK', 'USD_SEK'
+    test.performance()
