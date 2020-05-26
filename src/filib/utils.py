@@ -6,6 +6,7 @@ __all__ = [
 
 from datetime import datetime, timezone
 import sys
+from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 try:
     import matplotlib.pyplot as plt
@@ -15,9 +16,19 @@ except ImportError:
     pass
 import pandas as pd
 
+Factor = Callable[..., Tuple[pd.Series, Optional[float]]]
 
-def get_factor_data(factor, price_data, periods=None, split=3,
-                    leverage=1, long_short=False, name=''):
+
+def get_factor_data(
+    factor: Factor,
+    price_data: pd.DataFrame,
+    periods: Optional[List[int]] = None,
+    split: Union[int, Sequence[float]] = 3,
+    long_short: bool = False,
+    leverage: float = 1,
+    name: str = '',
+) -> pd.DataFrame:
+    """Return merged data: factor values, quantiles, weights and returns."""
     prices = price_data.xs('close', axis=1, level=1).filter(factor.columns)
     if factor.index.tz != prices.index.tz:
         raise ValueError("The time zone of `factor` and `prices` don't match.")
@@ -58,7 +69,11 @@ def get_factor_data(factor, price_data, periods=None, split=3,
     return factor_data
 
 
-def combine_factors(factor_data, combination):
+def combine_factors(
+    factor_data: Dict[str, pd.DataFrame],
+    combination: str
+) -> pd.Series:
+    """Return single factor by applying the provided weighting scheme."""
     if combination == ('sum_of_weights').lower():
         try:
             combined_factor = pd.concat(
@@ -71,7 +86,11 @@ def combine_factors(factor_data, combination):
     return combined_factor
 
 
-def get_performance(factor_data, plot=True):
+def get_performance(
+    factor_data: pd.DataFrame,
+    plot: bool = True
+) -> Tuple[str, pd.Series]:
+    """Return factor performance analytics."""
     factor_index = list(factor_data.columns).index('factor')
     periods = factor_data.columns[:factor_index]
     returns_column = factor_data.columns[factor_index + 3]
@@ -157,24 +176,14 @@ def get_performance(factor_data, plot=True):
     return log, summary
 
 
-def print_progress(current, total, prefix='', suffix='', bar_size=30):
-    """
-    Print a string-based progress bar if connected to a console.
-
-    Parameters
-    ----------
-    current : int
-        Current iteration number.
-    total : int
-        Total number of iterations.
-    prefix : str, optional
-        Additional prefix (beginning) message.
-    suffix : str, optional
-        Additional suffix (ending) message.
-    bar_size : int, optional
-        Number of characters on the bar.
-
-    """
+def print_progress(
+    current: int,
+    total: int,
+    prefix: str = '',
+    suffix: str = '',
+    bar_size: int = 30
+) -> None:
+    """Print string-based progress bar if connected to a console."""
     if sys.stdout.isatty() or 'ipykernel' in sys.modules:
         progress = current / total
         filled_length = int(progress * bar_size)
@@ -183,4 +192,5 @@ def print_progress(current, total, prefix='', suffix='', bar_size=30):
             f'\r{prefix} |{bar}| {current}/{total} [{progress:.0%}] {suffix}',
             end='\033[K'
         )
-        if current == total: print()
+        if current == total:
+            print()
