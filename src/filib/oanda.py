@@ -218,10 +218,11 @@ class Oanda:
         self.leverage = leverage
         self.accountID = accountID
         self.esteem = None
-        self.factors = {}
-        for name, function in getmembers(self.__class__, predicate=isfunction):
-            if self.__class__.__name__ in str(function):
-                self.factors[name] = function
+        self.factors = {
+            name: function for name, function
+            in dict(getmembers(self.__class__, predicate=isfunction)).items()
+            if name not in dict(getmembers(__class__, predicate=isfunction))
+        }
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.setLevel(logging.INFO)
         if self.logger.hasHandlers():
