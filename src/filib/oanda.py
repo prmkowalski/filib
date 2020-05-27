@@ -500,7 +500,12 @@ class Oanda:
         return summaries
 
     def __repr__(self):
-        return f'{__class__.__name__}.{self.__class__.__name__}'
+        try:
+            return (f'{__class__.__name__}.{self.__class__.__name__}'
+                    f'{list(self.select_factor_data)}')
+        except AttributeError:
+            return (f'{__class__.__name__}.{self.__class__.__name__}'
+                    f'{list(self.factors)}')
 
     def __len__(self):
         return len(self.factors)
