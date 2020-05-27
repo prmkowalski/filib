@@ -546,7 +546,19 @@ class Oanda:
         return summary
 
     def select(self, rules: str, swap: Optional[str] = None) -> None:
-        """Select and swap factors that meet the given rules."""
+        """Select and swap factors that meet the given rules.
+
+        Available metrics:
+        - ic:       Information Coefficient based on Spearman Rank Correlation
+        - autocorr: Factor Rank Autocorrelation
+        - sharpe:   Annualized Sharpe Ratio
+        - beta:     Annualized Beta as exposure to trading universe
+        - alpha:    Annualized Alpha as excess returns over trading universe
+        - win:      Win Rate
+        - rr:       Risk / Reward Ratio
+        - profit:   Profit Factor = (sum of earnings) / (sum of losses)
+        - cagr:     Compound Annual Growth Rate
+        """
         select = pd.concat(self.summaries, axis=1).T.query(rules)
         sign = pd.Series(1, select.index) if not swap else select[swap]
         sign[sign > 0], sign[sign < 0] = 1, -1
