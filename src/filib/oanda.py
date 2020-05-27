@@ -205,7 +205,6 @@ class Oanda:
         long_short: bool = False,
         combination: str = 'sum_of_weights',
         leverage: float = 1,
-        accountID: str = os.getenv('OANDA_ACCOUNT_ID'),
     ) -> None:
         self.instruments = instruments
         self.symbol = symbol
@@ -216,7 +215,6 @@ class Oanda:
         self.long_short = long_short
         self.combination = combination
         self.leverage = leverage
-        self.accountID = accountID
         self.esteem = None
         self.factors = {
             name: function for name, function
@@ -376,15 +374,6 @@ class Oanda:
         type(self).combined_factor.fget.cache_clear()
         type(self).combined_factor_data.fget.cache_clear()
         type(self).summaries.fget.cache_clear()
-
-    @property
-    def accountID(self) -> str:
-        """Oanda trading account identifier."""
-        return self._accountID
-
-    @accountID.setter
-    def accountID(self, value):
-        self._accountID = value
 
     @property
     @lru_cache()
@@ -579,14 +568,17 @@ class Oanda:
             type(self).combined_factor_data.fget.cache_clear()
 
     def rebalance(
-        self, live: bool = False, keep_current_trades: bool = False
+        self,
+        accountID: str = os.getenv('OANDA_ACCOUNT_ID'),
+        live: bool = False,
+        keep_current_trades: bool = False,
     ) -> None:
         """Generate and place orders to rebalance portfolio."""
         weights = self.combined_factor_data['weights']
         positions = weights.loc[weights.index.get_level_values('date')[-1]]
         positions.sort_values(inplace=True)
         headers = _get_headers()
-        endpoint = f'/v3/accounts/{self.accountID}'
+        endpoint = f'/v3/accounts/{accountID}'
         url = headers['Host'] + endpoint
         req = ur.Request(url, headers=headers)
         with ur.urlopen(req) as r:
