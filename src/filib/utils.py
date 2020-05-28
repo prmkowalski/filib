@@ -121,7 +121,10 @@ def get_performance(
     annualized_alpha = alpha * (len(returns) / years)
     win_rate = len(returns[returns > 0]) / len(returns)
     risk_reward = returns[returns > 0].mean() / -returns[returns < 0].mean()
-    profit_factor = sum(returns[returns > 0]) / -sum(returns[returns < 0])
+    try:
+        profit_factor = sum(returns[returns > 0]) / -sum(returns[returns < 0])
+    except ZeroDivisionError:
+        profit_factor = float('nan')
     cagr = (cum_returns[-1] / cum_returns[0])**(1 / years) - 1
     annualized_volatility = returns.std() * (len(returns) / years)**.5
     drawdown = 1 - cum_returns.div(cum_returns.cummax())
