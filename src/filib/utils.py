@@ -15,11 +15,13 @@ with suppress(ImportError):
     plt.rcParams['figure.figsize'] = (12, 8)
 import pandas as pd
 
-Factor = Callable[..., Tuple[pd.Series, Optional[Union[int, Sequence[float]]]]]
+Factor = Callable[
+    ..., Tuple[pd.DataFrame, Optional[Union[int, Sequence[float]]]]
+]
 
 
 def get_factor_data(
-    factor: Factor,
+    factor: pd.DataFrame,
     price_data: pd.DataFrame,
     periods: Optional[List[int]] = None,
     split: Union[int, Sequence[float]] = 3,

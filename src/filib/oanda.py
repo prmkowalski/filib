@@ -34,7 +34,9 @@ from .utils import (
     swap_sign,
 )
 
-Factor = Callable[..., Tuple[pd.Series, Optional[Union[int, Sequence[float]]]]]
+Factor = Callable[
+    ..., Tuple[pd.DataFrame, Optional[Union[int, Sequence[float]]]]
+]
 
 
 def _get_headers() -> Dict[str, str]:
@@ -442,8 +444,14 @@ class Oanda:
             except TypeError:
                 raise TypeError(f'`{name}` must return atleast factor.')
             factor_data[name] = get_factor_data(
-                factor, self.price_data, self.periods, s, self.leverage,
-                self.long_short, name)
+                factor=factor,
+                price_data=self.price_data,
+                periods=self.periods,
+                split=s,
+                long_short=self.long_short,
+                leverage=self.leverage,
+                name=name,
+            )
         suffix = f'in {time.time() - start_time:.1f} s'
         print_progress(len(self.factors), len(self.factors), prefix, suffix)
         return factor_data
@@ -464,13 +472,13 @@ class Oanda:
     def combined_factor_data(self) -> pd.DataFrame:
         """Combined factor values, quantiles, weights and returns."""
         return get_factor_data(
-            self.combined_factor,
-            self.price_data,
-            self.periods,
-            self.split,
-            self.leverage,
-            self.long_short,
-            f'{self.__class__.__name__}_combined',
+            factor=self.combined_factor,
+            price_data=self.price_data,
+            periods=self.periods,
+            split=self.split,
+            long_short=self.long_short,
+            leverage=self.leverage,
+            name=f'{self.__class__.__name__}_combined',
         )
 
     @property
