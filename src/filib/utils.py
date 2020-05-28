@@ -4,19 +4,18 @@ __all__ = [
     'get_factor_data', 'combine_factors', 'get_performance', 'print_progress'
 ]
 
+from contextlib import suppress
 from datetime import datetime, timezone
 import sys
 from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 
-try:
+with suppress(ImportError):
     import matplotlib.pyplot as plt
     plt.style.use('ggplot')
     plt.rcParams['figure.figsize'] = (12, 8)
-except ImportError:
-    pass
 import pandas as pd
 
-Factor = Callable[..., Tuple[pd.Series, Optional[float]]]
+Factor = Callable[..., Tuple[pd.Series, Optional[Union[int, Sequence[float]]]]]
 
 
 def get_factor_data(
@@ -75,12 +74,9 @@ def combine_factors(
 ) -> pd.Series:
     """Return single factor by applying the provided weighting scheme."""
     if combination == ('sum_of_weights').lower():
-        try:
-            combined_factor = pd.concat(
-                [factor['weights'] for factor in factor_data.values()],
-                axis=1).sum(axis=1).unstack()
-        except ValueError:  # No objects to concatenate
-            return None     # Should return an empty factor
+        combined_factor = pd.concat(
+            [factor['weights'] for factor in factor_data.values()],
+            axis=1).sum(axis=1).unstack()
     else:
         raise ValueError(f'Combination `{combination}` not available.')
     return combined_factor
@@ -184,7 +180,7 @@ def print_progress(
     bar_size: int = 30
 ) -> None:
     """Print string-based progress bar if connected to a console."""
-    if sys.stdout.isatty() or 'ipykernel' in sys.modules:
+    if sys.stdout.isatty() or 'ipykernel' in sys.modules and total != 0:
         progress = current / total
         filled_length = int(progress * bar_size)
         bar = '█' * filled_length + '-' * (bar_size - filled_length)
@@ -194,3 +190,20 @@ def print_progress(
         )
         if current == total:
             print()
+
+
+def swap_sign(function: Factor):
+    """Return values of the factor function with the changed sign."""
+    def wrapper(self):
+        try:
+            factor, split = function(self)
+            if isinstance(split, int):
+                return -1 * factor, -1 * split
+            elif isinstance(split, (list, tuple, set)):
+                return -1 * factor, sorted([-1 * item for item in split])
+            else:
+                raise ValueError(f'Split type {type(split)} is not supported.')
+        except ValueError:
+            factor = function(self)
+            return -1 * factor
+    return wrapper

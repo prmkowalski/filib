@@ -27,10 +27,14 @@ except ImportError:
     from pandas.io.json import json_normalize
 
 from .utils import (
-    get_factor_data, combine_factors, get_performance, print_progress
+    get_factor_data,
+    combine_factors,
+    get_performance,
+    print_progress,
+    swap_sign,
 )
 
-Factor = Callable[..., Tuple[pd.Series, Optional[float]]]
+Factor = Callable[..., Tuple[pd.Series, Optional[Union[int, Sequence[float]]]]]
 
 
 def _get_headers() -> Dict[str, str]:
@@ -448,11 +452,7 @@ class Oanda:
     @lru_cache()
     def combined_factor(self) -> pd.DataFrame:
         """Single factor obtained by combination."""
-        select_factor_data = getattr(self, 'select_factor_data', None)
-        if select_factor_data is not None:
-            return combine_factors(select_factor_data, self.combination)
-        else:
-            return combine_factors(self.factor_data, self.combination)
+        return combine_factors(self.factor_data, self.combination)
 
     @combined_factor.setter
     def combined_factor(self, value):
@@ -489,12 +489,8 @@ class Oanda:
         return summaries
 
     def __repr__(self):
-        try:
-            return (f'{__class__.__name__}.{self.__class__.__name__}'
-                    f'{list(self.select_factor_data)}')
-        except AttributeError:
-            return (f'{__class__.__name__}.{self.__class__.__name__}'
-                    f'{list(self.factors)}')
+        return (f'{__class__.__name__}.{self.__class__.__name__}'
+                f'{list(self.factors)}')
 
     def __len__(self):
         return len(self.factors)
@@ -517,7 +513,7 @@ class Oanda:
         type(self).summaries.fget.cache_clear()
 
     def __iter__(self):
-        return iter(self.factors)
+        return iter(self.factors.items())
 
     def performance(
         self, factor: Optional[str] = None, output: bool = True
@@ -534,8 +530,13 @@ class Oanda:
             self.logger.info(log)
         return summary
 
-    def select(self, rules: str, swap: Optional[str] = None) -> None:
-        """Select and swap factors that meet the given rules.
+    def select(
+        self,
+        rules: str,
+        swap_to: Optional[str] = None,
+        inplace: bool = False,
+    ) -> None:
+        """Select factors that meet the given rules and optionally swap signs.
 
         Available metrics:
         - ic:       Information Coefficient based on Spearman Rank Correlation
@@ -549,23 +550,27 @@ class Oanda:
         - cagr:     Compound Annual Growth Rate
         """
         select = pd.concat(self.summaries, axis=1).T.query(rules)
-        sign = pd.Series(1, select.index) if not swap else select[swap]
-        sign[sign > 0], sign[sign < 0] = 1, -1
-        if sign.empty:
+        signs = pd.Series(1, select.index) if not swap_to else select[swap_to]
+        signs[signs > 0], signs[signs < 0] = 1, -1
+        if signs.empty:
             self.logger.error(f'No factor satisfies the rules `{rules}`.')
         else:
             self.logger.info(
                 f"Factors with signs that meet the rules `{rules}`:\n"
                 f"\n"
-                f"{sign.to_string()}\n")
-            self.select_factor_data = {
-                f'{int(sign[name])}{name}'.replace('1', '', 1):
-                sign[name] * factor_data.loc[:, 'factor':]
-                for name, factor_data in self.factor_data.items()
-                if name in select.index
-            }
-            type(self).combined_factor.fget.cache_clear()
-            type(self).combined_factor_data.fget.cache_clear()
+                f"{signs.to_string()}\n")
+            if inplace:
+                factors = {}
+                for name, sign in signs.items():
+                    if sign == 1:
+                        factors[name] = self.factors[name]
+                    elif sign == -1:
+                        factors['-' + name] = swap_sign(self.factors[name])
+                self.factors = factors
+                type(self).factor_data.fget.cache_clear()
+                type(self).combined_factor.fget.cache_clear()
+                type(self).combined_factor_data.fget.cache_clear()
+                type(self).summaries.fget.cache_clear()
 
     def rebalance(
         self,
