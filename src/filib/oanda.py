@@ -18,7 +18,6 @@ import time
 from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 from urllib.parse import urlencode
 import urllib.request as ur
-import warnings
 
 import pandas as pd
 try:
@@ -527,7 +526,6 @@ class Oanda:
         self, factor: Optional[str] = None, output: bool = True
     ) -> pd.Series:
         """Return and show past performance summary."""
-        warnings.filterwarnings('ignore', category=UserWarning)
         if factor:
             log, summary = get_performance(self.factor_data[factor], output)
             if output:
