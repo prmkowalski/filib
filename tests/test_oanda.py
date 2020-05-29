@@ -1,4 +1,4 @@
-from filib.oanda import Oanda, find_instruments, FOREX
+from filib.oanda import Oanda, find_instruments, G10_USD, FOREX
 from filib.helpers import *
 from filib.utils import swap_sign
 
@@ -44,17 +44,7 @@ def test_workflow():
 
     # Initialize parameters
     model = SampleFactors(
-        instruments=[
-            "EUR_USD",
-            "GBP_USD",
-            "USD_JPY",
-            "AUD_USD",
-            "NZD_USD",
-            "USD_CAD",
-            "USD_CHF",
-            "USD_NOK",
-            "USD_SEK",
-        ],  # Define universe
+        instruments=G10_USD,  # Define universe
         symbol="USD",  # Optional, specify symbol to arrange price data
         granularity="D",  # Time period between each candle and between each rebalance
         count=500,  # Number of historical OHLCV candles to return for analysis

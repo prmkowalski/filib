@@ -60,30 +60,30 @@ Begin with imports, create hypotheses and write functions with predictive factor
 
 .. code:: python
 
-    from filib.oanda import Oanda           # Currently only Oanda FOREX is available
-    from filib.helpers import *             # Optional, useful for factor generation
+    from filib.oanda import Oanda  # Currently only Oanda FOREX is available
+    from filib.helpers import *  # Optional, useful for factor generation
     from filib.utils import swap_sign
 
 
     class SampleFactors(Oanda):
+        def momentum(self):  # THEORY: Persistence in performance
+            factor = self.returns  # Write down your factor formula
+            return factor  # Default split factor data to 3 quantiles
 
-        def momentum(self):                 # THEORY: Persistence in performance
-            factor = self.returns           # Write down your factor formula
-            return factor                   # Default split factor data to 3 quantiles
-
-        @swap_sign                          # Short low and long high factor values
+        @swap_sign  # Short low and long high factor values
         def relative_strenght_index(self):  # THEORY: Oversold / overbought indicator
-            factor = rsi(self.close, 14)    # Second factor formula
-            split = [0, 30, 70, 100]        # List of thresholds or int to split equally
-            return factor, split            # Follow this order: factor, split
+            factor = rsi(self.close, 14)
+            split = [0, 30, 70, 100]  # List of thresholds or int to split equally
+            return factor, split  # Follow this order: factor, split
 
-        def big_mac_index(self):            # THEORY: Simplified Purchasing Power Parity
-            import quandl                   # Financial, Economic and Alternative Data
+        def big_mac_index(self):  # THEORY: Simplified Purchasing Power Parity
+            import quandl  # Financial, Economic and Alternative Data
+
             iso_codes = get_iso_codes(self.price_data)
-            codes = [f'ECONOMIST/BIGMAC_{COUNTRY}.5' for COUNTRY in iso_codes]
-            factor = quandl.get(codes).dropna(how='all', axis=1)
-            factor.columns = [iso_codes[c.split('_')[1].split()[0]] for c in factor]
-            factor.index = factor.index.tz_localize('UTC')    # Convert time zone to UTC
+            codes = [f"ECONOMIST/BIGMAC_{COUNTRY}.5" for COUNTRY in iso_codes]
+            factor = quandl.get(codes).dropna(how="all", axis=1)
+            factor.columns = [iso_codes[c.split("_")[1].split()[0]] for c in factor]
+            factor.index = factor.index.tz_localize("UTC")  # Convert time zone to UTC
             return factor
 
 2. Research
@@ -94,16 +94,16 @@ Initialize parameters (during the first run you will be asked to provide credent
 .. code:: python
 
     model = SampleFactors(
-        instruments=['EUR_USD', 'GBP_USD', 'USD_JPY', 'AUD_USD', 'NZD_USD',
-                     'USD_CAD', 'USD_CHF', 'USD_NOK', 'USD_SEK'],  # Define universe
-        symbol='USD',       # Optional, specify symbol to arrange price data
-        granularity='D',    # Time period between each candle and between each rebalance
-        count=500,          # Number of historical OHLCV candles to return for analysis
+        instruments=["EUR_USD", "GBP_USD", "USD_JPY", "AUD_USD", "NZD_USD", "USD_CAD",
+                    "USD_CHF", "USD_NOK", "USD_SEK"],  # Define universe
+        symbol="USD",  # Optional, specify symbol to arrange price data
+        granularity="D",  # Time period between each candle and between each rebalance
+        count=500,  # Number of historical OHLCV candles to return for analysis
         periods=(1, 2, 3),  # Optional, specify periods for factor decay analysis
-        split=3,            # Number of quantiles to split combined factor data
-        long_short=True,    # Trade only top and bottom factor quantile
-        combination='sum_of_weights',  # Formula for combining factors together
-        leverage=3,         # Multiplier for the portfolio positions
+        split=3,  # Number of quantiles to split combined factor data
+        long_short=True,  # Trade only top and bottom factor quantile
+        combination="sum_of_weights",  # Formula for combining factors together
+        leverage=3,  # Multiplier for the portfolio positions
     )
 
 Check the performance of factors combined together:
@@ -163,9 +163,9 @@ Then analyze the performance of individual factors and select those that meet th
 .. code::
 
     >>> model.select(
-    ...     rules='abs(ic) > .01 or profit > 1',  # Example query expression
-    ...     swap_to='cagr',  # Align the signs of selected factors to specified metric
-    ...     inplace=True,    # Modify model to contain only selected factors
+    ...     rules="abs(ic) > .01 or profit > 1",  # Example query expression
+    ...     swap_to="cagr",  # Align the signs of selected factors to specified metric
+    ...     inplace=True,  # Modify model to contain only selected factors
     ... )
     Preparing performance: |██████████████████████████████| 3/3 [100%] in 6.2 s
 
@@ -185,8 +185,8 @@ Check portfolio positions based on selected factors and generated submitted orde
 .. code::
 
     >>> model.rebalance(
-    ...     accountID='',  # Your Oanda Account Identifier
-    ...     live=True,     # Actually place orders
+    ...     accountID="",  # Your Oanda Account Identifier
+    ...     live=True,  # Actually place orders
     ... )
     SampleFactors - INFO - Portfolio from `2020-05-28 00:00:00+00:00`:
 

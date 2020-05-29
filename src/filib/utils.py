@@ -1,6 +1,12 @@
 """Module with functions used throughout the library."""
 
-__all__ = ["get_factor_data", "combine_factors", "get_performance", "print_progress"]
+__all__ = [
+    "get_factor_data",
+    "combine_factors",
+    "get_performance",
+    "print_progress",
+    "swap_sign",
+]
 
 from contextlib import suppress
 from datetime import datetime, timezone
@@ -49,18 +55,12 @@ def get_factor_data(
     factor_data = pd.concat(forward_returns, axis=1).reindex(index).stack()
     factor_data["factor"] = factor.stack()
     if isinstance(split, int):
-        factor_quantile = (
-            factor_data.groupby(level=0)["factor"].transform(
-                lambda x: pd.qcut(x, split, labels=False, duplicates="drop")
-            )
-            + 1
+        factor_quantile = 1 + factor_data.groupby(level=0)["factor"].transform(
+            lambda x: pd.qcut(x, split, labels=False, duplicates="drop")
         )
     elif isinstance(split, (list, tuple, set)):
-        factor_quantile = (
-            factor_data.groupby(level=0)["factor"].transform(
-                lambda x: pd.cut(x, split, labels=False, duplicates="drop")
-            )
-            + 1
+        factor_quantile = 1 + factor_data.groupby(level=0)["factor"].transform(
+            lambda x: pd.cut(x, split, labels=False, duplicates="drop")
         )
         split = len(split) - 1
     else:
