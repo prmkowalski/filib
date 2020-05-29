@@ -1,13 +1,15 @@
-from filib.oanda import Oanda
+from filib.oanda import Oanda, find_instruments, FOREX
 from filib.helpers import *
+from filib.utils import swap_sign
 
 
 class SampleFactors(Oanda):
     """Four-factor test model."""
 
-    def momentum(self):
-        factor = self.returns
-        split = [-1, -.003, .003, 1]
+    @swap_sign
+    def relative_strenght_index(self):
+        factor = rsi(self.close, 14)
+        split = [0, 30, 70, 100]
         return factor, split
 
     # Below are the factors from 101 Formulaic Alphas by Zura Kakushadze
@@ -26,35 +28,39 @@ class SampleFactors(Oanda):
         return factor
 
 
-def test_strategy():
+def test_workflow():
 
     # Initialize parameters
-    test = SampleFactors(
-        instruments = ['EUR_USD', 'GBP_USD', 'USD_JPY', 'AUD_USD', 'NZD_USD',
-                       'USD_CAD', 'USD_CHF', 'USD_NOK', 'USD_SEK'],
-        symbol = 'USD',
-        granularity = 'H1',
-        count = 500,
-        periods = (1, 2, 3),
-        split = 3,
-        long_short = True,
-        combination = 'sum_of_weights',
-        leverage = 7,
+    model = SampleFactors(
+        instruments=['EUR_USD', 'GBP_USD', 'USD_JPY', 'AUD_USD', 'NZD_USD',
+                     'USD_CAD', 'USD_CHF', 'USD_NOK', 'USD_SEK'],  # Define universe
+        symbol='USD',       # Optional, specify symbol to arrange price data
+        granularity='D',    # Time period between each candle and between each rebalance
+        count=500,          # Number of historical OHLCV candles to return for analysis
+        periods=(1, 2, 3),  # Optional, specify periods for factor decay analysis
+        split=3,            # Number of quantiles to split combined factor data
+        long_short=True,    # Trade only top and bottom factor quantile
+        combination='sum_of_weights',  # Formula for combining factors together
+        leverage=3,         # Multiplier for the portfolio positions
     )
-    assert isinstance(test, Oanda)
+    assert isinstance(model, Oanda)
+    assert len(model) == 4
+    print(model)
 
     # Run commands from the proposed workflow
-    test.performance()
-    test.select(
-        rules = 'abs(ic) > .01 or profit > 1',
-        swap = 'cagr'
+    model.performance()
+    model.select(
+        rules='abs(ic) > .01 or profit > 1',  # Example query expression
+        swap_to='cagr',  # Align the signs of selected factors to specified metric
+        inplace=True,    # Modify model to contain only selected factors
     )
-    test.performance()
-    test.rebalance()
+    model.rebalance()
 
     # No objects to concatenate
-    test.select(rules = 'abs(ic) > 1')
+    model.select(rules='abs(ic) > 1')
+    model.performance()
 
     # Update attributes
-    test.instruments = 'USD_CAD', 'USD_CHF', 'USD_NOK', 'USD_SEK'
-    test.performance()
+    model.instruments = find_instruments('EUR', FOREX)
+    model['momentum'] = lambda self: self.returns
+    model.performance('momentum')

@@ -281,7 +281,7 @@ class Oanda:
 
     @property
     def granularity(self) -> str:
-        """Time interval between each candle and between each rebalance."""
+        """Time period between each candle and between each rebalance."""
         return self._granularity
 
     @granularity.setter
