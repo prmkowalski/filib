@@ -4,19 +4,32 @@ __all__ = [
     'get_factor_data', 'combine_factors', 'get_performance', 'print_progress'
 ]
 
+from contextlib import suppress
 from datetime import datetime, timezone
+import sys
+from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 
-try:
+with suppress(ImportError):
     import matplotlib.pyplot as plt
     plt.style.use('ggplot')
     plt.rcParams['figure.figsize'] = (12, 8)
-except ImportError:
-    pass
 import pandas as pd
 
+Factor = Callable[
+    ..., Tuple[pd.DataFrame, Optional[Union[int, Sequence[float]]]]
+]
 
-def get_factor_data(factor, price_data, periods=None, split=3,
-                    leverage=1, long_short=False, name=''):
+
+def get_factor_data(
+    factor: pd.DataFrame,
+    price_data: pd.DataFrame,
+    periods: Optional[List[int]] = None,
+    split: Union[int, Sequence[float]] = 3,
+    long_short: bool = False,
+    leverage: float = 1,
+    name: str = '',
+) -> pd.DataFrame:
+    """Return merged data: factor values, quantiles, weights and returns."""
     prices = price_data.xs('close', axis=1, level=1).filter(factor.columns)
     if factor.index.tz != prices.index.tz:
         raise ValueError("The time zone of `factor` and `prices` don't match.")
@@ -57,7 +70,11 @@ def get_factor_data(factor, price_data, periods=None, split=3,
     return factor_data
 
 
-def combine_factors(factor_data, combination):
+def combine_factors(
+    factor_data: Dict[str, pd.DataFrame],
+    combination: str
+) -> pd.Series:
+    """Return single factor by applying the provided weighting scheme."""
     if combination == ('sum_of_weights').lower():
         combined_factor = pd.concat(
             [factor['weights'] for factor in factor_data.values()],
@@ -67,7 +84,11 @@ def combine_factors(factor_data, combination):
     return combined_factor
 
 
-def get_performance(factor_data):
+def get_performance(
+    factor_data: pd.DataFrame,
+    plot: bool = True
+) -> Tuple[str, pd.Series]:
+    """Return factor performance analytics."""
     factor_index = list(factor_data.columns).index('factor')
     periods = factor_data.columns[:factor_index]
     returns_column = factor_data.columns[factor_index + 3]
@@ -102,7 +123,10 @@ def get_performance(factor_data):
     annualized_alpha = alpha * (len(returns) / years)
     win_rate = len(returns[returns > 0]) / len(returns)
     risk_reward = returns[returns > 0].mean() / -returns[returns < 0].mean()
-    profit_factor = sum(returns[returns > 0]) / -sum(returns[returns < 0])
+    try:
+        profit_factor = sum(returns[returns > 0]) / -sum(returns[returns < 0])
+    except ZeroDivisionError:
+        profit_factor = float('nan')
     cagr = (cum_returns[-1] / cum_returns[0])**(1 / years) - 1
     annualized_volatility = returns.std() * (len(returns) / years)**.5
     drawdown = 1 - cum_returns.div(cum_returns.cummax())
@@ -139,7 +163,7 @@ def get_performance(factor_data):
         f"\n"
         f"{past_returns.to_string(index_names=False)}\n"
     )
-    if 'plt' in globals():
+    if 'plt' in globals() and plot:
         cum_returns.plot(title='Cumulative Returns', legend=True, linewidth=3)
         benchmark_rets = factor_data[periods[0]].groupby(level=0).sum()
         benchmark_cum_rets = (1 + benchmark_rets).cumprod().rename('benchmark')
@@ -153,30 +177,38 @@ def get_performance(factor_data):
     return log, summary
 
 
-def print_progress(iteration, total, prefix='', suffix='', bar_size=30):
-    """
-    Print a string-based progress bar.
+def print_progress(
+    current: int,
+    total: int,
+    prefix: str = '',
+    suffix: str = '',
+    bar_size: int = 30
+) -> None:
+    """Print string-based progress bar if connected to a console."""
+    if sys.stdout.isatty() or 'ipykernel' in sys.modules and total != 0:
+        progress = current / total
+        filled_length = int(progress * bar_size)
+        bar = '█' * filled_length + '-' * (bar_size - filled_length)
+        print(
+            f'\r{prefix} |{bar}| {current}/{total} [{progress:.0%}] {suffix}',
+            end='\033[K'
+        )
+        if current == total:
+            print()
 
-    Parameters
-    ----------
-    iteration : int
-        Current iteration number.
-    total : int
-        Total number of iterations.
-    prefix : str, optional
-        Additional prefix (beginning) message.
-    suffix : str, optional
-        Additional suffix (ending) message.
-    bar_size : int, optional
-        Number of characters on the bar.
 
-    """
-    progress = iteration / total
-    filled_length = int(progress * bar_size)
-    bar = '█' * filled_length + '-' * (bar_size - filled_length)
-    print(
-        f'\r{prefix} |{bar}| {iteration}/{total} [{progress:.0%}] {suffix}',
-        end='\033[K'
-    )
-    if iteration == total:
-        print()
+def swap_sign(function: Factor):
+    """Return values of the factor function with the changed sign."""
+    def wrapper(self):
+        try:
+            factor, split = function(self)
+            if isinstance(split, int):
+                return -1 * factor, -1 * split
+            elif isinstance(split, (list, tuple, set)):
+                return -1 * factor, sorted([-1 * item for item in split])
+            else:
+                raise ValueError(f'Split type {type(split)} is not supported.')
+        except ValueError:
+            factor = function(self)
+            return -1 * factor
+    return wrapper

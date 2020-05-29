@@ -17,15 +17,15 @@ python =
     3.8: py38, coverage-report
 
 [testenv]
+setenv = PYTHONHASHSEED = 42
 passenv =
     OANDA_HOSTNAME
     OANDA_TOKEN
     OANDA_ACCOUNT_ID
 deps =
-    pytest
-    coverage[toml]>=5.0.2
     pandas0: pandas<1
     pandas1: pandas>=1
+extras = test
 commands = coverage run -m pytest {posargs}
 
 [testenv:coverage-report]

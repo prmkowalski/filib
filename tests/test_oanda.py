@@ -1,14 +1,15 @@
-import os
-
-from filib.oanda import Oanda
+from filib.oanda import Oanda, find_instruments, FOREX
 from filib.helpers import *
+from filib.utils import swap_sign
 
 
 class SampleFactors(Oanda):
+    """Four-factor test model."""
 
-    def momentum(self):
-        factor = self.returns
-        split = [-1, -.003, .003, 1]
+    @swap_sign
+    def relative_strenght_index(self):
+        factor = rsi(self.close, 14)
+        split = [0, 30, 70, 100]
         return factor, split
 
     # Below are the factors from 101 Formulaic Alphas by Zura Kakushadze
@@ -27,26 +28,39 @@ class SampleFactors(Oanda):
         return factor
 
 
-def test_strategy():
+def test_workflow():
 
     # Initialize parameters
-    test = SampleFactors(
-        instruments = ['EUR_USD', 'GBP_USD', 'USD_JPY', 'AUD_USD', 'NZD_USD',
-                       'USD_CAD', 'USD_CHF', 'USD_NOK', 'USD_SEK'],
-        granularity = 'D',
-        count = 500,
-        symbol = 'USD',
-        periods = (1, 2, 3),
-        split = 3,
-        accountID = os.environ['OANDA_ACCOUNT_ID'],
-        leverage = 7,
-        long_short = True,
-        combination = 'sum_of_weights')
-    assert isinstance(test, Oanda)
+    model = SampleFactors(
+        instruments=['EUR_USD', 'GBP_USD', 'USD_JPY', 'AUD_USD', 'NZD_USD',
+                     'USD_CAD', 'USD_CHF', 'USD_NOK', 'USD_SEK'],  # Define universe
+        symbol='USD',       # Optional, specify symbol to arrange price data
+        granularity='D',    # Time period between each candle and between each rebalance
+        count=500,          # Number of historical OHLCV candles to return for analysis
+        periods=(1, 2, 3),  # Optional, specify periods for factor decay analysis
+        split=3,            # Number of quantiles to split combined factor data
+        long_short=True,    # Trade only top and bottom factor quantile
+        combination='sum_of_weights',  # Formula for combining factors together
+        leverage=3,         # Multiplier for the portfolio positions
+    )
+    assert isinstance(model, Oanda)
+    assert len(model) == 4
+    print(model)
 
     # Run commands from the proposed workflow
-    test.performance()
-    test.select(
-        rules = 'abs(ic) > .01 or profit > 1',
-        swap = 'cagr')
-    test.rebalance()
+    model.performance()
+    model.select(
+        rules='abs(ic) > .01 or profit > 1',  # Example query expression
+        swap_to='cagr',  # Align the signs of selected factors to specified metric
+        inplace=True,    # Modify model to contain only selected factors
+    )
+    model.rebalance()
+
+    # No objects to concatenate
+    model.select(rules='abs(ic) > 1')
+    model.performance()
+
+    # Update attributes
+    model.instruments = find_instruments('EUR', FOREX)
+    model['momentum'] = lambda self: self.returns
+    model.performance('momentum')
