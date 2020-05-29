@@ -1,9 +1,20 @@
 """Module with a library of useful functions for factor generation."""
 
 __all__ = [
-    'get_iso_codes', 'correlation', 'delay', 'delta', 'product', 'rank',
-    'scale', 'stddev', 'ts_sum', 'ts_min', 'ts_max', 'ts_rank', 'z_score',
-    'rsi'
+    "get_iso_codes",
+    "correlation",
+    "delay",
+    "delta",
+    "product",
+    "rank",
+    "scale",
+    "stddev",
+    "ts_sum",
+    "ts_min",
+    "ts_max",
+    "ts_rank",
+    "z_score",
+    "rsi",
 ]
 
 from typing import Dict, Optional
@@ -14,35 +25,37 @@ import pandas as pd
 def get_iso_codes(price_data: Optional[pd.DataFrame] = None) -> Dict[str, str]:
     """Return {country ISO 3166 alpha-3: currency ISO 4217} codes."""
     iso_codes = {
-        'AUS': 'AUD',  # Australia
-        'CAN': 'CAD',  # Canada
-        'CHE': 'CHF',  # Switzerland
-        'CHN': 'CNH',  # China (People's Republic of)
-        'CZE': 'CZK',  # Czech Republic
-        'DNK': 'DKK',  # Denmark
-        'EA19': 'EUR',  # Euro area (19 countries)
-        'EUR': 'EUR',  # European Union
-        'GBR': 'GBP',  # United Kingdom
-        'HKG': 'HKD',  # Hong Kong
-        'HUN': 'HUF',  # Hungary
-        'IND': 'INR',  # India
-        'JPN': 'JPY',  # Japan
-        'MEX': 'MXN',  # Mexico
-        'NOR': 'NOK',  # Norway
-        'NZL': 'NZD',  # New Zealand
-        'POL': 'PLN',  # Poland
-        'SAU': 'SAR',  # Saudi Arabia
-        'SIN': 'SGD',  # Singapore
-        'SWE': 'SEK',  # Sweden
-        'THA': 'THB',  # Thailand
-        'TUR': 'TRY',  # Turkey
-        'USA': 'USD',  # United States
-        'ZAF': 'ZAR',  # South Africa
+        "AUS": "AUD",  # Australia
+        "CAN": "CAD",  # Canada
+        "CHE": "CHF",  # Switzerland
+        "CHN": "CNH",  # China (People's Republic of)
+        "CZE": "CZK",  # Czech Republic
+        "DNK": "DKK",  # Denmark
+        "EA19": "EUR",  # Euro area (19 countries)
+        "EUR": "EUR",  # European Union
+        "GBR": "GBP",  # United Kingdom
+        "HKG": "HKD",  # Hong Kong
+        "HUN": "HUF",  # Hungary
+        "IND": "INR",  # India
+        "JPN": "JPY",  # Japan
+        "MEX": "MXN",  # Mexico
+        "NOR": "NOK",  # Norway
+        "NZL": "NZD",  # New Zealand
+        "POL": "PLN",  # Poland
+        "SAU": "SAR",  # Saudi Arabia
+        "SIN": "SGD",  # Singapore
+        "SWE": "SEK",  # Sweden
+        "THA": "THB",  # Thailand
+        "TUR": "TRY",  # Turkey
+        "USA": "USD",  # United States
+        "ZAF": "ZAR",  # South Africa
     }
     if price_data is not None:
-        iso_codes = {country: currency
-                     for country, currency in iso_codes.items()
-                     if currency in price_data.columns.levels[0]}
+        iso_codes = {
+            country: currency
+            for country, currency in iso_codes.items()
+            if currency in price_data.columns.levels[0]
+        }
     return iso_codes
 
 
@@ -98,8 +111,7 @@ def ts_max(x: pd.DataFrame, d: int) -> pd.DataFrame:
 
 def ts_rank(x: pd.DataFrame, d: int) -> pd.DataFrame:
     """Return time-series rank in the past d days."""
-    return x.rolling(d).apply(
-        lambda na: pd.Series(na).rank().to_numpy()[-1], raw=True)
+    return x.rolling(d).apply(lambda na: pd.Series(na).rank().to_numpy()[-1], raw=True)
 
 
 def z_score(x: pd.DataFrame, d: int = 20) -> pd.DataFrame:

@@ -16,15 +16,27 @@ class SampleFactors(Oanda):
     # https://papers.ssrn.com/sol3/Papers.cfm?abstract_id=2701346
 
     def alpha008(self):
-        factor = (-1 * rank(((ts_sum(self.open, 5) * ts_sum(self.returns, 5)) - delay((ts_sum(self.open, 5) * ts_sum(self.returns, 5)), 10))))
+        factor = -1 * rank(
+            (
+                (ts_sum(self.open, 5) * ts_sum(self.returns, 5))
+                - delay((ts_sum(self.open, 5) * ts_sum(self.returns, 5)), 10)
+            )
+        )
         return factor
 
     def alpha026(self):
-        factor = (-1 * ts_max(correlation(ts_rank(self.volume, 5), ts_rank(self.high, 5), 5), 3))
+        factor = -1 * ts_max(
+            correlation(ts_rank(self.volume, 5), ts_rank(self.high, 5), 5), 3
+        )
         return factor
 
     def alpha034(self):
-        factor = (rank(((1 - rank((stddev(self.returns, 2) / stddev(self.returns, 5)))) + (1 - rank(delta(self.close, 1))))))
+        factor = rank(
+            (
+                (1 - rank((stddev(self.returns, 2) / stddev(self.returns, 5))))
+                + (1 - rank(delta(self.close, 1)))
+            )
+        )
         return factor
 
 
@@ -32,16 +44,25 @@ def test_workflow():
 
     # Initialize parameters
     model = SampleFactors(
-        instruments=['EUR_USD', 'GBP_USD', 'USD_JPY', 'AUD_USD', 'NZD_USD',
-                     'USD_CAD', 'USD_CHF', 'USD_NOK', 'USD_SEK'],  # Define universe
-        symbol='USD',       # Optional, specify symbol to arrange price data
-        granularity='D',    # Time period between each candle and between each rebalance
-        count=500,          # Number of historical OHLCV candles to return for analysis
+        instruments=[
+            "EUR_USD",
+            "GBP_USD",
+            "USD_JPY",
+            "AUD_USD",
+            "NZD_USD",
+            "USD_CAD",
+            "USD_CHF",
+            "USD_NOK",
+            "USD_SEK",
+        ],  # Define universe
+        symbol="USD",  # Optional, specify symbol to arrange price data
+        granularity="D",  # Time period between each candle and between each rebalance
+        count=500,  # Number of historical OHLCV candles to return for analysis
         periods=(1, 2, 3),  # Optional, specify periods for factor decay analysis
-        split=3,            # Number of quantiles to split combined factor data
-        long_short=True,    # Trade only top and bottom factor quantile
-        combination='sum_of_weights',  # Formula for combining factors together
-        leverage=3,         # Multiplier for the portfolio positions
+        split=3,  # Number of quantiles to split combined factor data
+        long_short=True,  # Trade only top and bottom factor quantile
+        combination="sum_of_weights",  # Formula for combining factors together
+        leverage=3,  # Multiplier for the portfolio positions
     )
     assert isinstance(model, Oanda)
     assert len(model) == 4
@@ -50,17 +71,17 @@ def test_workflow():
     # Run commands from the proposed workflow
     model.performance()
     model.select(
-        rules='abs(ic) > .01 or profit > 1',  # Example query expression
-        swap_to='cagr',  # Align the signs of selected factors to specified metric
-        inplace=True,    # Modify model to contain only selected factors
+        rules="abs(ic) > .01 or profit > 1",  # Example query expression
+        swap_to="cagr",  # Align the signs of selected factors to specified metric
+        inplace=True,  # Modify model to contain only selected factors
     )
     model.rebalance()
 
     # No objects to concatenate
-    model.select(rules='abs(ic) > 1')
+    model.select(rules="abs(ic) > 1")
     model.performance()
 
     # Update attributes
-    model.instruments = find_instruments('EUR', FOREX)
-    model['momentum'] = lambda self: self.returns
-    model.performance('momentum')
+    model.instruments = find_instruments("EUR", FOREX)
+    model["momentum"] = lambda self: self.returns
+    model.performance("momentum")

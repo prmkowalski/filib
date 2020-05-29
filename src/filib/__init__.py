@@ -1,7 +1,7 @@
 """Factor Investing Library"""
 
-__all__ = ['helpers', 'oanda', 'utils']
-__author__ = 'Paweł Kowalski'
+__all__ = ["helpers", "oanda", "utils"]
+__author__ = "Paweł Kowalski"
 
 from contextlib import suppress
 
