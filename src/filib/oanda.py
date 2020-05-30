@@ -733,7 +733,7 @@ EXOTICS = [
     "EUR_PLN",
     "EUR_SEK",
     "EUR_SGD",
-    "EUR_TRY",
+    # "EUR_TRY",
     "EUR_ZAR",
     "GBP_AUD",
     "GBP_CAD",
@@ -751,7 +751,7 @@ EXOTICS = [
     "SGD_CHF",
     "SGD_HKD",
     "SGD_JPY",
-    "TRY_JPY",
+    # "TRY_JPY",
     "USD_CNH",
     "USD_CZK",
     "USD_DKK",
@@ -765,7 +765,7 @@ EXOTICS = [
     "USD_SEK",
     "USD_SGD",
     "USD_THB",
-    "USD_TRY",
+    # "USD_TRY",
     "USD_ZAR",
     "ZAR_JPY",
 ]
@@ -859,7 +859,7 @@ EM_USD = [
     "USD_MXN",
     "USD_PLN",
     "USD_THB",
-    "USD_TRY",
+    # "USD_TRY",
     "USD_ZAR",
 ]
 
