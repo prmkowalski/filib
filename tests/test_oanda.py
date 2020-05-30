@@ -3,7 +3,7 @@ from filib.helpers import *
 from filib.utils import swap_sign
 
 
-class SampleFactors(Oanda):
+class MyFactors(Oanda):
     """Four-factor test model."""
 
     @swap_sign
@@ -43,7 +43,7 @@ class SampleFactors(Oanda):
 def test_workflow():
 
     # Initialize parameters
-    model = SampleFactors(
+    model = MyFactors(
         instruments=G10_USD,  # Define universe
         symbol="USD",  # Optional, specify symbol to arrange price data
         granularity="D",  # Time period between each candle and between each rebalance

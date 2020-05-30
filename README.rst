@@ -65,7 +65,7 @@ Begin with imports, create hypotheses and write functions with predictive factor
     from filib.utils import swap_sign
 
 
-    class SampleFactors(Oanda):
+    class MyFactors(Oanda):
         def momentum(self):  # THEORY: Persistence in performance
             factor = self.returns  # Write down your factor formula
             return factor  # Default split factor data to 3 quantiles
@@ -93,9 +93,9 @@ Initialize parameters (during the first run you will be asked to provide credent
 
 .. code:: python
 
-    model = SampleFactors(
+    model = MyFactors(
         instruments=["EUR_USD", "GBP_USD", "USD_JPY", "AUD_USD", "NZD_USD", "USD_CAD",
-                    "USD_CHF", "USD_NOK", "USD_SEK"],  # Define universe
+                     "USD_CHF", "USD_NOK", "USD_SEK"],  # Define universe
         symbol="USD",  # Optional, specify symbol to arrange price data
         granularity="D",  # Time period between each candle and between each rebalance
         count=500,  # Number of historical OHLCV candles to return for analysis
@@ -114,7 +114,7 @@ Check the performance of factors combined together:
     Collecting price data: |██████████████████████████████| 9/9 [100%] in 4.0 s
     Preparing factor data: |██████████████████████████████| 3/3 [100%] in 12.0 s
 
-    SampleFactors - INFO - Factor `SampleFactors_combined` Analytics:
+    MyFactors - INFO - Factor `MyFactors_combined` Analytics:
 
                     Min    Max    Mean   Size    Returns (bps)
                     factor factor factor factor            1D     2D     3D
@@ -169,7 +169,7 @@ Then analyze the performance of individual factors and select those that meet th
     ... )
     Preparing performance: |██████████████████████████████| 3/3 [100%] in 6.2 s
 
-    SampleFactors - INFO - Factors with signs that meet the rules `abs(ic) > .01 or profit > 1`:
+    MyFactors - INFO - Factors with signs that meet the rules `abs(ic) > .01 or profit > 1`:
 
     big_mac_index             -1.0
     momentum                   1.0
@@ -188,7 +188,7 @@ Check portfolio positions based on selected factors and generated submitted orde
     ...     accountID="",  # Your Oanda Account Identifier
     ...     live=True,  # Actually place orders
     ... )
-    SampleFactors - INFO - Portfolio from `2020-05-28 00:00:00+00:00`:
+    MyFactors - INFO - Portfolio from `2020-05-28 00:00:00+00:00`:
 
     NOK    -19.5%
     SEK    -15.3%
