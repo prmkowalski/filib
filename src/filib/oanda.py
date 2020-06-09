@@ -37,13 +37,8 @@ try:
 except ImportError:
     from pandas.io.json import json_normalize
 
-from .utils import (
-    get_factor_data,
-    combine_factors,
-    get_performance,
-    print_progress,
-    swap_sign,
-)
+from .helpers import swap_sign
+from .utils import get_factor_data, combine_factors, get_performance, print_progress
 
 Factor = Callable[..., Tuple[pd.DataFrame, Optional[Union[int, Sequence[float]]]]]
 

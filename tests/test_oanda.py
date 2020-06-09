@@ -1,6 +1,5 @@
 from filib.oanda import Oanda, find_instruments, G10_USD, FOREX
 from filib.helpers import *
-from filib.utils import swap_sign
 
 
 class MyFactors(Oanda):

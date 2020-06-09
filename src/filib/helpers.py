@@ -16,12 +16,15 @@ __all__ = [
     "z_score",
     "rsi",
     "halflife",
+    "swap_sign",
 ]
 
 from math import log
-from typing import Dict, Optional
+from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 
 import pandas as pd
+
+Factor = Callable[..., Tuple[pd.DataFrame, Optional[Union[int, Sequence[float]]]]]
 
 
 def get_iso_codes(price_data: Optional[pd.DataFrame] = None) -> Dict[str, str]:
@@ -143,3 +146,21 @@ def halflife(series: pd.Series) -> float:
         len(x) * sum(x ** 2) - sum(x) ** 2
     )
     return -log(2) / theta
+
+
+def swap_sign(function: Union[Factor, Callable[..., Union[float, pd.DataFrame]]]):
+    """Return values of the function with the changed sign."""
+
+    def wrapper(*args, **kwargs):
+        try:
+            factor, split = function(*args, **kwargs)
+            if isinstance(split, int):
+                return -1 * factor, -1 * split
+            elif isinstance(split, (list, tuple, set)):
+                return -1 * factor, sorted([-1 * item for item in split])
+            else:
+                raise ValueError(f"Split type {type(split)} is not supported.")
+        except (ValueError, TypeError):
+            return -1 * function(*args, **kwargs)
+
+    return wrapper

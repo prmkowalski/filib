@@ -62,7 +62,6 @@ Begin with imports, create hypotheses and write functions with predictive factor
 
     from filib.oanda import Oanda  # Currently only Oanda FOREX is available
     from filib.helpers import *  # Optional, useful for factor generation
-    from filib.utils import swap_sign
 
 
     class MyFactors(Oanda):
