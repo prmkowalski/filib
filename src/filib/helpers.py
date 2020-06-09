@@ -15,8 +15,10 @@ __all__ = [
     "ts_rank",
     "z_score",
     "rsi",
+    "halflife",
 ]
 
+from math import log
 from typing import Dict, Optional
 
 import pandas as pd
@@ -130,3 +132,14 @@ def rsi(x: pd.DataFrame, d: int = 14) -> pd.DataFrame:
     rs = avg_gain / avg_loss
     rsi = 100 - 100 / (1 + rs)
     return rsi
+
+
+def halflife(series: pd.Series) -> float:
+    """Return expected time it takes to revert to half of deviation from the mean."""
+    x = series.shift()
+    y = series - x
+    x, y = x[1:], y[1:]
+    theta = (len(x) * sum(x * y) - sum(x) * sum(y)) / (
+        len(x) * sum(x ** 2) - sum(x) ** 2
+    )
+    return -log(2) / theta
