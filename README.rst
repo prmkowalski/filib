@@ -30,7 +30,7 @@ LIBrary is a lightweight algorithmic trading Python library built for easy testi
 predictive factors and portfolio rebalance via
 `Oanda <https://developer.oanda.com/rest-live-v20/introduction/>`_.
 Inspired by and compatible with
-`Quantopian Open Source <https://www.quantopian.com/opensource>`_.
+`Quantopian Open Source <https://github.com/quantopian>`_.
 
     **NOTE**: This library is currently in alpha stage. Until it becomes stable
     I strongly recommend using practice account for testing and trading. You can also
@@ -65,11 +65,11 @@ Begin with imports, create hypotheses and write functions with predictive factor
 
 
     class MyFactors(Oanda):
-        def momentum(self):  # THEORY: Persistence in performance
+        def momentum(self):  # THEORY: Persistence in asset performance
             factor = self.returns  # Write down your factor formula
-            return factor  # Default split factor data to 3 quantiles
+            return factor  # By default split factor data to 3 quantiles
 
-        @swap_sign  # Short low and long high factor values
+        @swap_sign  # Short high and long low factor values
         def relative_strenght_index(self):  # THEORY: Oversold / overbought indicator
             factor = rsi(self.close, 14)
             split = [0, 30, 70, 100]  # List of thresholds or int to split equally
