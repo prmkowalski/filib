@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [tool.tox]
 legacy_tox_ini = """
 [tox]
-envlist = py{36,37,38}-pandas{0,1}, coverage-report
+envlist = py{36,37,38}, coverage-report
 minversion = 3.3.0
 isolated_build = true
 skip_missing_interpreters = true
@@ -22,9 +22,7 @@ passenv =
     OANDA_HOSTNAME
     OANDA_TOKEN
     OANDA_ACCOUNT_ID
-deps =
-    pandas0: pandas<1
-    pandas1: pandas>=1
+deps = pandas
 extras = test
 commands = coverage run -m pytest {posargs}
 
