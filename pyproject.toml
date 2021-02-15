@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [tool.tox]
 legacy_tox_ini = """
 [tox]
-envlist = py{36,37,38}, coverage-report
+envlist = py{36,37,38,39}, coverage-report
 minversion = 3.3.0
 isolated_build = true
 skip_missing_interpreters = true
@@ -15,6 +15,7 @@ python =
     3.6: py36, coverage-report
     3.7: py37, coverage-report
     3.8: py38, coverage-report
+    3.9: py39, coverage-report
 
 [testenv]
 setenv = PYTHONHASHSEED = 42
