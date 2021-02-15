@@ -43,8 +43,8 @@ from .utils import get_factor_data, combine_factors, get_performance, print_prog
 Factor = Callable[..., Tuple[pd.DataFrame, Optional[Union[int, Sequence[float]]]]]
 
 
-def _get_headers() -> Dict[str, str]:
-    """Return the header fields for HTTP requests."""
+def _get_hostname_headers() -> Tuple[str, Dict[str, str]]:
+    """Return the V20 REST server hostname and the header fields for HTTP requests."""
     try:
         hostname = os.environ["OANDA_HOSTNAME"]
         token = os.environ["OANDA_TOKEN"]
@@ -74,13 +74,12 @@ def _get_headers() -> Dict[str, str]:
             with open(config_filepath, "w") as config_file:
                 config.write(config_file)
     headers = {
-        "Host": hostname,
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
         "Connection": "Keep-Alive",
         "AcceptDatetimeFormat": "RFC3339",
     }
-    return headers
+    return hostname, headers
 
 
 def find_instruments(symbol: str, universe: List[str]) -> List[str]:
@@ -149,7 +148,7 @@ def get_price_data(
             to_time = end
             responses = []
             for c in count_list:
-                headers = _get_headers()
+                hostname, headers = _get_hostname_headers()
                 endpoint = f"/v3/instruments/{instrument}/candles"
                 params = {
                     "granularity": granularity,
@@ -157,7 +156,7 @@ def get_price_data(
                     "to": to_time,
                     **kwargs,
                 }
-                url = headers["Host"] + endpoint + "?" + urlencode(params)
+                url = hostname + endpoint + "?" + urlencode(params)
                 req = ur.Request(url, headers=headers)
                 with ur.urlopen(req) as r:
                     df = json_normalize(json.loads(r.read()), "candles").set_index(
@@ -559,7 +558,10 @@ class Oanda:
         return summary
 
     def select(
-        self, rules: str, swap_to: Optional[str] = None, inplace: bool = False,
+        self,
+        rules: str,
+        swap_to: Optional[str] = None,
+        inplace: bool = False,
     ) -> None:
         """Select factors that meet the given rules and optionally swap signs.
 
@@ -608,9 +610,9 @@ class Oanda:
         weights = self.combined_factor_data["weights"]
         positions = weights.loc[weights.index.get_level_values("date")[-1]]
         positions.sort_values(inplace=True)
-        headers = _get_headers()
+        hostname, headers = _get_hostname_headers()
         endpoint = f"/v3/accounts/{accountID}"
-        url = headers["Host"] + endpoint
+        url = hostname + endpoint
         req = ur.Request(url, headers=headers)
         with ur.urlopen(req) as r:
             account = pd.read_json(r.read())["account"].apply(
@@ -623,7 +625,7 @@ class Oanda:
         for instrument in self.instruments:
             base, quote = instrument.split("_")
             params = {"instruments": instrument}
-            url = headers["Host"] + endpoint + "/pricing?" + urlencode(params)
+            url = hostname + endpoint + "/pricing?" + urlencode(params)
             req = ur.Request(url, headers=headers)
             with ur.urlopen(req) as r:
                 pricing = (
@@ -654,13 +656,13 @@ class Oanda:
             if keep_current_trades and trade.instrument in orders.index:
                 orders[trade.instrument] = orders[trade.instrument] - trade.currentUnits
             elif live:
-                url = headers["Host"] + endpoint + f"/trades/{trade.id}/close"
+                url = hostname + endpoint + f"/trades/{trade.id}/close"
                 req = ur.Request(url, headers=headers, method="PUT")
                 with ur.urlopen(req) as r:
                     pass
         orders = orders.loc[orders != 0]
         if live:
-            url = headers["Host"] + endpoint + "/orders"
+            url = hostname + endpoint + "/orders"
             for instrument, units in orders.items():
                 params = {
                     "order": {
