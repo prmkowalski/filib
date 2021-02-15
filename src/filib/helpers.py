@@ -15,11 +15,16 @@ __all__ = [
     "ts_rank",
     "z_score",
     "rsi",
+    "halflife",
+    "swap_sign",
 ]
 
-from typing import Dict, Optional
+from math import log
+from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 
 import pandas as pd
+
+Factor = Callable[..., Tuple[pd.DataFrame, Optional[Union[int, Sequence[float]]]]]
 
 
 def get_iso_codes(price_data: Optional[pd.DataFrame] = None) -> Dict[str, str]:
@@ -130,3 +135,32 @@ def rsi(x: pd.DataFrame, d: int = 14) -> pd.DataFrame:
     rs = avg_gain / avg_loss
     rsi = 100 - 100 / (1 + rs)
     return rsi
+
+
+def halflife(series: pd.Series) -> float:
+    """Return expected time it takes to revert to half of deviation from the mean."""
+    x = series.shift()
+    y = series - x
+    x, y = x[1:], y[1:]
+    theta = (len(x) * sum(x * y) - sum(x) * sum(y)) / (
+        len(x) * sum(x ** 2) - sum(x) ** 2
+    )
+    return -log(2) / theta
+
+
+def swap_sign(function: Union[Factor, Callable[..., Union[float, pd.DataFrame]]]):
+    """Return values of the function with the changed sign."""
+
+    def wrapper(*args, **kwargs):
+        try:
+            factor, split = function(*args, **kwargs)
+            if isinstance(split, int):
+                return -1 * factor, -1 * split
+            elif isinstance(split, (list, tuple, set)):
+                return -1 * factor, sorted([-1 * item for item in split])
+            else:
+                raise ValueError(f"Split type {type(split)} is not supported.")
+        except (ValueError, TypeError):
+            return -1 * function(*args, **kwargs)
+
+    return wrapper

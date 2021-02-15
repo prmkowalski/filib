@@ -5,13 +5,12 @@ __all__ = [
     "combine_factors",
     "get_performance",
     "print_progress",
-    "swap_sign",
 ]
 
 from contextlib import suppress
 from datetime import datetime, timezone
 import sys
-from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 with suppress(ImportError):
     import matplotlib.pyplot as plt
@@ -19,8 +18,6 @@ with suppress(ImportError):
     plt.style.use("ggplot")
     plt.rcParams["figure.figsize"] = (12, 8)
 import pandas as pd
-
-Factor = Callable[..., Tuple[pd.DataFrame, Optional[Union[int, Sequence[float]]]]]
 
 
 def get_factor_data(
@@ -228,22 +225,3 @@ def print_progress(
         )
         if current == total:
             print()
-
-
-def swap_sign(function: Factor):
-    """Return values of the factor function with the changed sign."""
-
-    def wrapper(self):
-        try:
-            factor, split = function(self)
-            if isinstance(split, int):
-                return -1 * factor, -1 * split
-            elif isinstance(split, (list, tuple, set)):
-                return -1 * factor, sorted([-1 * item for item in split])
-            else:
-                raise ValueError(f"Split type {type(split)} is not supported.")
-        except ValueError:
-            factor = function(self)
-            return -1 * factor
-
-    return wrapper
