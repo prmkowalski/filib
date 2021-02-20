@@ -21,7 +21,7 @@ setup(
     long_description=long_description,
     url="https://github.com/makr3la/filib",
     author="Paweł Kowalski",
-    author_email="makr3la@gmail.com",
+    author_email="prm.kowalski@gmail.com",
     license="Apache License 2.0",
     classifiers=[
         "Development Status :: 3 - Alpha",
