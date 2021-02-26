@@ -623,6 +623,8 @@ class Oanda:
             )
         orders = pd.Series(name=self.__class__.__name__, dtype=int)
         for instrument in self.instruments:
+            if instrument not in FOREX:
+                raise Exception("Currently only FOREX pairs are available for trading.")
             base, quote = instrument.split("_")
             params = {"instruments": instrument}
             url = hostname + endpoint + "/pricing?" + urlencode(params)
