@@ -38,7 +38,7 @@ setup(
     package_dir={"": "src"},
     packages=find_packages(where="src"),
     python_requires=">=3.6",
-    install_requires=["pandas"],
+    install_requires=["pandas<1.4"],
     extras_require={"test": ["coverage[toml]>=5.0.2", "matplotlib", "pytest"]},
     setup_requires=["setuptools_scm"],
     project_urls={
