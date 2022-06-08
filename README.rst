@@ -13,12 +13,12 @@ filib
     :target: https://pypi.org/project/filib/
     :alt: PyPI - Status
 
-.. image:: https://img.shields.io/github/license/makr3la/filib
-    :target: https://github.com/makr3la/filib/blob/master/LICENSE
+.. image:: https://img.shields.io/github/license/prmkowalski/filib
+    :target: https://github.com/prmkowalski/filib/blob/master/LICENSE
     :alt: GitHub
 
-.. image:: https://github.com/makr3la/filib/workflows/CI/badge.svg
-    :target: https://github.com/makr3la/filib/actions?query=workflow%3ACI+branch%3Amaster
+.. image:: https://github.com/prmkowalski/filib/workflows/CI/badge.svg
+    :target: https://github.com/prmkowalski/filib/actions?query=workflow%3ACI+branch%3Amaster
     :alt: CI - Status
 
 .. image:: https://img.shields.io/badge/code%20style-black-000000.svg
@@ -35,9 +35,9 @@ Inspired by and compatible with
     **NOTE**: This library is currently in alpha stage. Until it becomes stable
     I strongly recommend using practice account for testing and trading. You can also
     expect major changes without warnings, mostly responses to
-    `Issues <https://github.com/makr3la/filib/issues>`_.
+    `Issues <https://github.com/prmkowalski/filib/issues>`_.
 
-`Changelog » <https://github.com/makr3la/filib/releases>`_
+`Changelog » <https://github.com/prmkowalski/filib/releases>`_
 
 Installation
 ------------

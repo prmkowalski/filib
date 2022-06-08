@@ -23,7 +23,7 @@ passenv =
     OANDA_HOSTNAME
     OANDA_TOKEN
     OANDA_ACCOUNT_ID
-deps = pandas
+deps = pandas<1.4
 extras = test
 commands = coverage run -m pytest {posargs}
 

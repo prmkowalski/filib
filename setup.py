@@ -19,7 +19,7 @@ setup(
     use_scm_version={"write_to": "src/filib/_version.py"},
     description="Factor Investing Library",
     long_description=long_description,
-    url="https://github.com/makr3la/filib",
+    url="https://github.com/prmkowalski/filib",
     author="Paweł Kowalski",
     author_email="prm.kowalski@gmail.com",
     license="Apache License 2.0",
@@ -38,11 +38,11 @@ setup(
     package_dir={"": "src"},
     packages=find_packages(where="src"),
     python_requires=">=3.6",
-    install_requires=["pandas"],
+    install_requires=["pandas<1.4"],
     extras_require={"test": ["coverage[toml]>=5.0.2", "matplotlib", "pytest"]},
     setup_requires=["setuptools_scm"],
     project_urls={
-        "Bug Tracker": "https://github.com/makr3la/filib/issues",
-        "Source Code": "https://github.com/makr3la/filib",
+        "Bug Tracker": "https://github.com/prmkowalski/filib/issues",
+        "Source Code": "https://github.com/prmkowalski/filib",
     },
 )
