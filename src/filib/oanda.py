@@ -680,14 +680,12 @@ class Oanda:
                 with ur.urlopen(req) as r:
                     pass
         self.logger.info(
-            f"Portfolio from `{weights.index.levels[0][-1]}`:\n"
+            f"NAV: {account.NAV:.2f} {account.currency}\n"
             f"\n"
+            f"Portfolio from `{weights.index.levels[0][-1]}`:\n"
             f"{positions.apply('{0:.1%}'.format).to_string(header=False)}\n"
             f"\n"
-            f"- Account NAV: {account.NAV:.2f} {account.currency}\n"
-            f"- Position Value: {account.positionValue:.2f}\n"
-            f"- {'Submitted Orders' if live else 'Needed Orders'}:\n"
-            f"\n"
+            f"{'Submitted Orders' if live else 'Needed Orders'}:\n"
             f"{orders.to_string() if orders.any() else 'None'}\n"
         )
 

@@ -142,7 +142,7 @@ def get_performance(
     x = factor_data.groupby(level=0).mean()[periods[0]].dropna()
     y = factor_data.groupby(level=0).sum().loc[x.index, returns_column]
     beta = (len(x) * sum(x * y) - sum(x) * sum(y)) / (
-        len(x) * sum(x ** 2) - sum(x) ** 2
+        len(x) * sum(x**2) - sum(x) ** 2
     )
     alpha = (sum(y) - beta * sum(x)) / len(x)
     annualized_alpha = alpha * (len(returns) / years)

@@ -143,7 +143,7 @@ def halflife(series: pd.Series) -> float:
     y = series - x
     x, y = x[1:], y[1:]
     theta = (len(x) * sum(x * y) - sum(x) * sum(y)) / (
-        len(x) * sum(x ** 2) - sum(x) ** 2
+        len(x) * sum(x**2) - sum(x) ** 2
     )
     return -log(2) / theta
 
