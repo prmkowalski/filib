@@ -16,6 +16,8 @@ python =
     3.7: py37, coverage-report
     3.8: py38, coverage-report
     3.9: py39, coverage-report
+    3.10: py310, coverage-report
+    3.11: py311, coverage-report
 
 [testenv]
 setenv = PYTHONHASHSEED = 42
